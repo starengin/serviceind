@@ -3,14 +3,16 @@ import { NavLink } from "react-router-dom";
 import MobileMenu from "./MobileMenu";
 import Button from "../ui/Button";
 
-const CUSTOMER_URL = "/login";
+const CUSTOMER_URL = import.meta.env.VITE_CUSTOMER_PORTAL_URL || "";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
 
-  const goLogin = () => {
-    window.location.href = "/login";
-  };
+const goLogin = () => {
+  if (!CUSTOMER_URL) return; // no redirect if not set
+  if (window.location.href === CUSTOMER_URL) return; // prevent loop
+  window.location.href = CUSTOMER_URL;
+};
 
   return (
     <>
