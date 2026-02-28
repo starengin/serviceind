@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "address" TEXT DEFAULT '';
+ALTER TABLE "User" ADD COLUMN "gstin" TEXT DEFAULT '';
+ALTER TABLE "User" ADD COLUMN "state" TEXT DEFAULT '';

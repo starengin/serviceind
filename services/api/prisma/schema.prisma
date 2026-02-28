@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum DrCr {
+  DR
+  CR
+}
+
+enum TxnType {
+  SALE
+  SALES_RETURN
+  PURCHASE
+  PURCHASE_RETURN
+  PAYMENT
+  RECEIPT
+  JOURNAL
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  role          Role     @default(CUSTOMER)
+  name          String
+  email         String?  @unique
+  phone         String?  @unique
+  passwordHash  String
+  openingAmount Decimal  @default(0.0)
+  openingType   DrCr     @default(DR)
+
+  txnsAsParty   Transaction[] @relation("Party")
+  createdTxns   Transaction[] @relation("CreatedBy")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  address String? @default("")
+state   String? @default("")
+gstin   String? @default("")
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  type        TxnType
+  voucherNo   String
+  date        DateTime
+
+  amount      Decimal   // ALWAYS POSITIVE
+  drcr        DrCr
+
+  narration   String?
+  pdfTextRaw  String?
+
+  partyId     Int
+  party       User     @relation("Party", fields: [partyId], references: [id])
+
+  createdById Int
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+
+  pdfs        TransactionPDF[]
+
+  createdAt   DateTime @default(now())
+}
+
+model TransactionPDF {
+  id            Int @id @default(autoincrement())
+  transactionId Int
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  filePath      String
+  originalName  String
+  mimeType      String?
+  size          Int?
+
+  createdAt     DateTime @default(now())
+}
+
+model Page {
+  id        Int      @id @default(autoincrement())
+  title     String
+  slug      String   @unique
+  content   String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  notes     String?
+  status    String   @default("OPEN") // OPEN | DONE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
