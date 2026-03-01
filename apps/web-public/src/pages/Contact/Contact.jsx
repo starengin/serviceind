@@ -82,60 +82,96 @@ export default function Contact() {
     setForm((p) => ({ ...p, [k]: v }));
   }
 
-  async function onSubmit(e) {
-    e.preventDefault();
-    setErr("");
+async function onSubmit(e) {
+  e.preventDefault();
+  setErr("");
 
-    if (!canSend) {
-      setErr("Please fill required fields properly (Name, Phone, City, Details).");
-      return;
-    }
+  if (!canSend) {
+    setErr("Please fill required fields properly (Name, Phone, City, Details).");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
+
+  // ✅ hard safety: even if something hangs, stop loader after 25s
+  const hardStop = setTimeout(() => {
+    setLoading(false);
+    setErr("Request taking too long. Please try again or use WhatsApp Now.");
+  }, 25000);
+
+  try {
+    const payload = {
+      name: form.name.trim(),
+      company: form.company.trim(),
+      phone: cleanPhone(form.phone),
+      email: form.email.trim(),
+      city: form.city.trim(),
+      material: form.material,
+      details: form.details.trim(),
+      subject: (form.subject || DEFAULT_SUBJECT).trim(),
+      preferred: form.preferred,
+      page: window.location.href,
+    };
+
+    // ✅ timeout fetch (AbortController)
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 20000);
+
+    let res;
     try {
-      const payload = {
-        name: form.name.trim(),
-        company: form.company.trim(),
-        phone: cleanPhone(form.phone),
-        email: form.email.trim(),
-        city: form.city.trim(),
-        material: form.material,
-        details: form.details.trim(),
-        subject: (form.subject || DEFAULT_SUBJECT).trim(),
-        preferred: form.preferred,
-        page: window.location.href,
-      };
-
-      const res = await fetch(`${API}/public/contact`, {
+      res = await fetch(`${API}/public/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || "Failed to send enquiry");
-
-      setSent(true);
-
-      const waText =
-        `Hello STAR Engineering,%0A%0A` +
-        `Requirement Enquiry:%0A` +
-        `Name: ${encodeURIComponent(payload.name)}%0A` +
-        (payload.company ? `Company: ${encodeURIComponent(payload.company)}%0A` : "") +
-        `Phone: ${encodeURIComponent(payload.phone)}%0A` +
-        (payload.email ? `Email: ${encodeURIComponent(payload.email)}%0A` : "") +
-        `City: ${encodeURIComponent(payload.city)}%0A` +
-        `Material: ${encodeURIComponent(payload.material)}%0A` +
-        `Details: ${encodeURIComponent(payload.details)}%0A`;
-
-      const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`;
-      window.open(waUrl, "_blank", "noopener,noreferrer");
-    } catch (e2) {
-      setErr(e2?.message || "Something went wrong");
     } finally {
-      setLoading(false);
+      clearTimeout(t);
     }
+
+    // ✅ parse safely
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.message || `Failed (${res.status})`);
+    }
+
+    setSent(true);
+
+    // ✅ WhatsApp open (some browsers block popups after async)
+    const waText =
+      `Hello STAR Engineering,\n\n` +
+      `Requirement Enquiry:\n` +
+      `Name: ${payload.name}\n` +
+      (payload.company ? `Company: ${payload.company}\n` : "") +
+      `Phone: ${payload.phone}\n` +
+      (payload.email ? `Email: ${payload.email}\n` : "") +
+      `City: ${payload.city}\n` +
+      `Material: ${payload.material}\n` +
+      `Details: ${payload.details}\n`;
+
+    const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
+
+    // ✅ best for popup blockers:
+    window.location.href = waUrl; // redirect instead of window.open
+  } catch (e2) {
+    // ✅ if timeout/abort or network hang
+    const msg =
+      e2?.name === "AbortError"
+        ? "Server is not responding (timeout). Use WhatsApp Now."
+        : (e2?.message || "Something went wrong");
+
+    setErr(msg);
+  } finally {
+    clearTimeout(hardStop);
+    setLoading(false);
   }
+}
 
   return (
     <div className="container" style={{ paddingTop: 18, paddingBottom: 40 }}>
