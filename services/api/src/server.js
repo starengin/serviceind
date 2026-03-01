@@ -516,35 +516,44 @@ function isAllowedOrigin(origin) {
 const app = express();
 const prisma = new PrismaClient();
 // ✅ CORS (Production-safe + Dev-safe)
-const ALLOWED_ORIGINS = [
+const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
   "http://localhost:3000",
+
   "https://www.stareng.co.in",
   "https://stareng.co.in",
+
+  "https://portal.stareng.co.in",   // ✅ ADD THIS (customer portal)
+  "https://admin.stareng.co.in",    // ✅ admin domain
+
   "https://stareng.vercel.app",
   "https://stareng-admin.vercel.app",
-  "https://admin.stareng.co.in",
-];
+]);
 
-app.use(cors({
-  origin: function (origin, cb) {
-    // ✅ allow non-browser requests (Postman, server-to-server, curl)
+const corsOptions = {
+  origin: (origin, cb) => {
+    // ✅ allow Postman/curl/server-to-server (no origin)
     if (!origin) return cb(null, true);
 
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    // ✅ allow exact domains
+    if (ALLOWED_ORIGINS.has(origin)) return cb(null, true);
 
-    // ✅ allow any Vercel preview deployments (optional but helpful)
+    // ✅ allow ANY vercel preview domain
     if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return cb(null, true);
 
-    return cb(new Error("Not allowed by CORS: " + origin));
+    // ❗ IMPORTANT: don't throw error (it breaks preflight)
+    return cb(null, false);
   },
   credentials: true,
-  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-}));
+};
 
-// ✅ Preflights
-app.options("*", cors());
+// ✅ Put CORS BEFORE all routes
+app.use(cors(corsOptions));
+
+// ✅ Preflight for all routes (MUST use same options)
+app.options("*", cors(corsOptions));
 
 // ✅ PASTE HERE (move)
 const PORT = process.env.PORT || 5000;
