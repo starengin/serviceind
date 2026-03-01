@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://api.stareng.in",
+  baseURL: import.meta.env.VITE_API_URL || "https://api.stareng.co.in",
   timeout: 15000,
 });
 
