@@ -703,22 +703,46 @@ function esc(s = "") {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
+const ALLOWED_ORIGINS = [
+  "https://portal.stareng.co.in",
+  "https://www.stareng.co.in",
+  "https://stareng.co.in",
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
 
+// ✅ allow any vercel preview (optional but best)
+function isAllowedOrigin(origin) {
+  try {
+    const host = new URL(origin).hostname;
+    if (host.endsWith(".vercel.app")) return true;
+    return ALLOWED_ORIGINS.includes(origin);
+  } catch {
+    return false;
+  }
+}
 
 const app = express();
 const prisma = new PrismaClient();
 
+// ✅ CORS (MUST be before routes)
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "https://www.stareng.co.in",
-    "https://portal.stareng.co.in",
-    "https://admin.stareng.co.in"
-  ],
-  credentials: true
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // Postman / server-to-server
+    if (isAllowedOrigin(origin)) return cb(null, true);
+    return cb(new Error("CORS blocked: " + origin));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// ✅ Preflight (very important)
+app.options("*", cors());
+
+// ✅ Body parsers (MUST be before routes)
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ✅ PASTE HERE (move)
 const PORT = process.env.PORT || 5000;
@@ -1126,7 +1150,6 @@ function requireAdminOrSameCustomer(req, res, next) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 }
-
 // ✅ Customer Login
 app.post("/customer-auth/login", async (req, res) => {
   try {
