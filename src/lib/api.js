@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
+  baseURL: import.meta.env.VITE_API_URL || "https://api.stareng.in",
   timeout: 15000,
 });
 
@@ -23,10 +23,6 @@ export const api = {
 
   // ✅ NEW: Admin Login (NO OTP) — frontend will call this
   adminLogin: (data) => getData(API.post("/admin/login", data)),
-
-  // ✅ KEEP OLD (do not delete) — still here if you want later
-  adminStep1: (data) => getData(API.post("/admin/login-step1", data)),
-  adminStep2: (data) => getData(API.post("/admin/login-step2", data)),
 
   // ✅ Dashboard
   dashboard: (params) => getData(API.get("/dashboard", { params })),
