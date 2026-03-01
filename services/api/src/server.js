@@ -721,7 +721,7 @@ app.use(cors({
 }));
 
 // ✅ PASTE HERE (move)
-const PORT = Number(process.env.PORT || 5000);
+const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
 
