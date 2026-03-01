@@ -515,26 +515,36 @@ function isAllowedOrigin(origin) {
 
 const app = express();
 const prisma = new PrismaClient();
+// ✅ CORS (Production-safe + Dev-safe)
 const ALLOWED_ORIGINS = [
-  "https://portal.stareng.co.in",
+  "http://localhost:5173",
+  "http://localhost:3000",
   "https://www.stareng.co.in",
   "https://stareng.co.in",
-  "http://localhost:5173",
-  "http://localhost:5174",
+  "https://stareng.vercel.app",
+  "https://stareng-admin.vercel.app",
+  "https://admin.stareng.co.in",
 ];
-const corsOptions = {
-  origin: (origin, cb) => {
-    if (isAllowedOrigin(origin)) return cb(null, true);
-    return cb(new Error("Not allowed by CORS"));
+
+app.use(cors({
+  origin: function (origin, cb) {
+    // ✅ allow non-browser requests (Postman, server-to-server, curl)
+    if (!origin) return cb(null, true);
+
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+
+    // ✅ allow any Vercel preview deployments (optional but helpful)
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return cb(null, true);
+
+    return cb(new Error("Not allowed by CORS: " + origin));
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204,
-};
+}));
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+// ✅ Preflight
+app.options("*", cors());
 
 // ✅ PASTE HERE (move)
 const PORT = process.env.PORT || 5000;
