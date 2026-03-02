@@ -1398,65 +1398,67 @@ function parseDateLooseAny(str) {
 }
 
 function moneyToNumber(s) {
-  const m = String(s || "").match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})|\d+(?:\.\d{2})?)/);
-  if (!m) return 0;
-  return Number(String(m[1]).replace(/,/g, "")) || 0;
+  // Supports:
+  // 4,69,140.00 (Indian) | 6,74,800.00 (Indian) | 590000.00 | 60,200.00 (western)
+  const str = String(s || "");
+
+  // prefer decimal amounts first (safer)
+  const mDec = str.match(/\b\d[\d,]*\.\d{2}\b/);
+  if (mDec?.[0]) {
+    return Number(mDec[0].replace(/,/g, "")) || 0;
+  }
+
+  // fallback integer (only if needed)
+  const mInt = str.match(/\b\d[\d,]*\b/);
+  if (mInt?.[0]) {
+    return Number(mInt[0].replace(/,/g, "")) || 0;
+  }
+
+  return 0;
 }
 
 function pickTotalAmount(lines) {
-  // ✅ Robust total picker:
-  // - "Total ₹/ī 6,74,800.00 14,000.0 Kg" => picks 6,74,800.00 (max), not qty
-  // - avoids picking 6 / 4 / 18 from GST %, etc.
+  const joined = lines.join(" ");
 
-  const toNum = (s) => Number(String(s).replace(/,/g, "")) || 0;
+  // 1) Strong keywords (best reliability)
+  const KEYWORDS = [
+    "grand total",
+    "total invoice value",
+    "total amount",
+    "amount payable",
+    "net amount",
+    "invoice value",
+    "total",
+  ];
 
-  const extractMoneyCandidates = (str) => {
-    const t = String(str || "");
-
-    // Prefer real money formats:
-    // 1) 1,23,456.78
-    // 2) 123456.78
-    const a =
-      t.match(/\b\d{1,3}(?:,\d{3})+(?:\.\d{2})\b/g) || []; // with commas + 2 decimals
-    const b =
-      t.match(/\b\d+(?:\.\d{2})\b/g) || []; // plain + 2 decimals
-
-    // If decimals are missing sometimes, still consider comma numbers:
-    const c =
-      t.match(/\b\d{1,3}(?:,\d{3})+\b/g) || []; // with commas no decimals
-
-    // Merge unique
-    const all = Array.from(new Set([...a, ...b, ...c]));
-
-    // Convert to numbers & filter tiny noise (like 6, 4, 18, 9 from GST%)
-    return all
-      .map(toNum)
-      .filter((n) => Number.isFinite(n) && n >= 50); // >=50 avoids 6/4/18 etc
-  };
-
-  // ✅ 1) Best: lines containing "Total" (often contains qty also)
-  let best = 0;
-  for (const l of lines) {
-    if (/\bTotal\b/i.test(l)) {
-      const cand = extractMoneyCandidates(l);
-      if (cand.length) best = Math.max(best, ...cand); // ✅ pick MAX, not last
-    }
-  }
-  if (best > 0) return best;
-
-  // ✅ 2) Next: any line starting with currency symbol (₹ or ī)
   for (let i = lines.length - 1; i >= 0; i--) {
     const l = String(lines[i] || "");
-    if (/^[₹ī]\s*/.test(l)) {
-      const cand = extractMoneyCandidates(l);
-      if (cand.length) return Math.max(...cand);
+    const low = l.toLowerCase();
+
+    if (KEYWORDS.some((k) => low.includes(k))) {
+      const decs = l.match(/\b\d[\d,]*\.\d{2}\b/g);
+      if (decs?.length) return moneyToNumber(decs[decs.length - 1]);
     }
   }
 
-  // ✅ 3) Fallback: scan whole doc, pick max money-like number
-  const joined = lines.join(" ");
-  const cand = extractMoneyCandidates(joined);
-  if (cand.length) return Math.max(...cand);
+  // 2) If keyword lines fail, pick MAX decimal amount from whole doc
+  // (Invoices/Receipts normally have total as maximum)
+  const allDec = joined.match(/\b\d[\d,]*\.\d{2}\b/g) || [];
+  if (allDec.length) {
+    let max = 0;
+    for (const a of allDec) {
+      const n = Number(String(a).replace(/,/g, "")) || 0;
+      if (n > max) max = n;
+    }
+    return max;
+  }
+
+  // 3) Last resort integer numbers (avoid long bank refs by limiting length)
+  const allInt = joined.match(/\b\d[\d,]*\b/g) || [];
+  const ints = allInt
+    .map((x) => x.replace(/,/g, ""))
+    .filter((x) => x.length >= 4 && x.length <= 9); // keep 1000..999999999
+  if (ints.length) return Number(ints[ints.length - 1]) || 0;
 
   return 0;
 }
@@ -1538,29 +1540,29 @@ if (type === "SALE") {
   return norm(star);
 }
 
-  if (type === "RECEIPT") {
-    // ✅ 1) FIRST PRIORITY: filename Receipt_2.pdf => 2 (fixes your "22" issue)
-    const fromFile = codeFromFilename("receipt");
-    if (fromFile) return norm(fromFile);
+if (type === "RECEIPT") {
+  // 1) Same line: "No. : 2 Dated : 2-Mar-26"
+  const mSame = compact.match(/\bNo\.\s*:\s*([A-Za-z0-9\/-]+)\b/i);
+  if (mSame?.[1]) return norm(mSame[1]);
 
-    // ✅ 2) PDF text
-    for (let i = 0; i < lines.length; i++) {
-      if (/^No\.\s*:?\s*$/i.test(lines[i]) || /^No\.$/i.test(lines[i])) {
-        for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
-          const v = norm(lines[j]);
-          if (!v || v === ":" || /^Dated$/i.test(v)) continue;
+  // 2) If "No." is on its own line, take NEXT token (but not a date)
+  for (let i = 0; i < lines.length; i++) {
+    const l = norm(lines[i]);
+    if (/^No\.\s*:?\s*$/i.test(l) || /^No\.$/i.test(l)) {
+      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+        const v = norm(lines[j]);
+        if (!v) continue;
 
-          // take first number only
-          const m = v.match(/\b(\d{1,10})\b/);
-          if (m?.[1]) return m[1];
-        }
+        // if line is like "2 2-Mar-26" => take first token
+        const parts = v.split(/\s+/).filter(Boolean);
+        const first = parts[0] || "";
+        if (first && !/^\d{1,2}-[A-Za-z]{3}-\d{2,4}$/.test(first)) return first;
       }
     }
-
-    // handles: "No. : 2 Dated : 2-Mar-26"
-    const mText = t.match(/\bNo\.\s*:\s*(\d{1,10})\b/i);
-    return mText?.[1] || "";
   }
+
+  return "";
+}
 
   if (type === "PAYMENT") {
   // ✅ 1) FIRST PRIORITY: filename Payment_2.pdf -> 2
@@ -1601,19 +1603,24 @@ if (type === "SALE") {
   }
 
   if (type === "SALES_RETURN") {
-    // ✅ 1) FIRST PRIORITY: filename "Credit Note_2.pdf" => 2
-    const fromFile =
-      codeFromFilename("credit note") ||
-      codeFromFilename("creditnote") ||
-      codeFromFilename("credit_note");
-    if (fromFile) return norm(fromFile);
+  // handle: "Credit Note No.  Dated" next line => "2 2-Mar-26"
+  for (let i = 0; i < lines.length; i++) {
+    const l = norm(lines[i]).toLowerCase();
+    if (l.includes("credit note") && l.includes("no")) {
+      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+        const v = norm(lines[j]);
+        if (!v) continue;
 
-    // ✅ 2) PDF text: supports newline split (compact already has spaces)
-    const fromText =
-      t.match(/\bCredit\s*Note\s*No\.?\s*:?\s*([A-Z0-9\/-]+)\b/i)?.[1] || "";
-
-    return norm(fromText);
+        const parts = v.split(/\s+/).filter(Boolean);
+        const first = parts[0] || "";
+        if (first) return norm(first);
+      }
+    }
   }
+
+  // fallback (same-line pattern if ever present)
+  return compact.match(/\bCredit\s*Note\s*No\.?\s*:?\s*([A-Z0-9\-\/]+)\b/i)?.[1] || "";
+}
   return "";
 }
 
