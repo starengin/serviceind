@@ -128,31 +128,33 @@ function fileHref(p, token) {
   const tableRows = useMemo(() => {
     if (loading) return [];
 
-    const openingRow = {
-      __type: "OPENING",
-      id: "opening",
-      date: from,
-      voucherNo: "—",
-      voucherType: "—",
-      narration: "",
-      debit: opening > 0 ? opening : 0,
-      credit: opening < 0 ? Math.abs(opening) : 0,
-      runningBalance: opening,
-      pdfs: [],
-    };
+const openingRow = {
+  __type: "OPENING",
+  id: "opening",
+  date: from,
+  voucherNo: "—",
+  voucherType: "—",
+  narration: "",
+  // ✅ Opening: Dr => Debit, Cr => Credit
+  debit: opening > 0 ? opening : 0,
+  credit: opening < 0 ? Math.abs(opening) : 0,
+  runningBalance: opening,
+  pdfs: [],
+};
 
-    const closingRow = {
-      __type: "CLOSING",
-      id: "closing",
-      date: to,
-      voucherNo: "—",
-      voucherType: "—",
-      narration: "",
-      debit: closing > 0 ? closing : 0,
-      credit: closing < 0 ? Math.abs(closing) : 0,
-      runningBalance: closing,
-      pdfs: [],
-    };
+const closingRow = {
+  __type: "CLOSING",
+  id: "closing",
+  date: to,
+  voucherNo: "—",
+  voucherType: "—",
+  narration: "",
+  // ✅ Closing: Dr => Credit (By Closing), Cr => Debit (To Closing)
+  debit: closing < 0 ? Math.abs(closing) : 0,
+  credit: closing > 0 ? closing : 0,
+  runningBalance: closing,
+  pdfs: [],
+};
 
     if (!rows.length) return [openingRow, closingRow];
     return [openingRow, ...rows, closingRow];
@@ -164,16 +166,18 @@ function fileHref(p, token) {
     const credit = nNum(r?.credit);
     const side = debit > 0 ? "To" : credit > 0 ? "By" : "To";
 
-    if (r.__type === "OPENING") {
-      if (opening > 0) return "To Opening Balance";
-      if (opening < 0) return "By Opening Balance";
-      return "Opening Balance";
-    }
+if (r.__type === "OPENING") {
+  // ✅ 0/blank bhi "To Opening Balance"
+  if (opening >= 0) return "To Opening Balance";
+  return "By Opening Balance";
+}
 
 if (r.__type === "CLOSING") {
+  // ✅ Rule: Dr>Cr => By Closing (credit column)
+  // ✅ Cr>Dr => To Closing (debit column)
   if (closing > 0) return "By Closing Balance";
   if (closing < 0) return "To Closing Balance";
-  return "Closing Balance";
+  return "By Closing Balance";
 }
 
     const typeRaw = String(r?.voucherType || r?.type || "").toUpperCase();
