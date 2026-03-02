@@ -352,28 +352,26 @@ if (r.__type === "CLOSING") {
 ======================= */}
 <table className="md:hidden w-full table-fixed">
   {/* fixed percentages so it never exceeds viewport */}
-  <colgroup>
-    <col style={{ width: "26%" }} />
-    <col style={{ width: "22%" }} />
-    <col style={{ width: "30%" }} />
-    <col style={{ width: "18%" }} />
-    <col style={{ width: "4%" }} />
-  </colgroup>
+ <colgroup>
+  <col style={{ width: "24%" }} /> {/* Date */}
+  <col style={{ width: "46%" }} /> {/* Particulars (big) */}
+  <col style={{ width: "22%" }} /> {/* Amount */}
+  <col style={{ width: "8%" }} />  {/* Attach */}
+</colgroup>
 
-  <thead className="bg-slate-50 border-b">
-    <tr className="text-left text-[11px] text-slate-500">
-      <th className="px-2 py-2">Date</th>
-      <th className="px-2 py-2">Voucher</th>
-      <th className="px-2 py-2">Particulars</th>
-      <th className="px-2 py-2 text-right">Amount</th>
-      <th className="px-2 py-2 text-right">👁️</th>
-    </tr>
-  </thead>
+<thead className="bg-slate-50 border-b">
+  <tr className="text-left text-[11px] text-slate-500">
+    <th className="px-2 py-2">Date</th>
+    <th className="px-2 py-2">Particulars</th>
+    <th className="px-2 py-2 text-right">Amount</th>
+    <th className="px-2 py-2 text-right">👁️</th>
+  </tr>
+</thead>
 
   <tbody className="text-[11px]">
     {loading ? (
       <tr>
-        <td className="px-2 py-4 text-slate-500" colSpan={5}>Loading...</td>
+        <td className="px-2 py-4 text-slate-500" colSpan={4}>Loading...</td>
       </tr>
     ) : (
       tableRows.map((r) => {
@@ -393,17 +391,25 @@ if (r.__type === "CLOSING") {
                   : "border-b"
               }
             >
-              <td className="px-2 py-2 align-top whitespace-nowrap">{fmtDateISO(r.date)}</td>
+<td className="px-2 py-2 align-top whitespace-nowrap">
+  {fmtDateISO(r.date)}
+</td>
 
-              <td className="px-2 py-2 align-top break-words">
-                {r.voucherNo || "—"}
-              </td>
+<td className="px-2 py-2 align-top">
+  <div className="whitespace-normal break-words leading-4 font-semibold">
+    {particulars}
+  </div>
 
-              <td className="px-2 py-2 align-top">
-                <div className="whitespace-normal break-words leading-4">
-                  {particulars}
-                </div>
-              </td>
+  {/* ✅ voucher second line (only for normal txns) */}
+  {r.__type === "OPENING" || r.__type === "CLOSING" ? null : (
+    <div className="mt-0.5 text-[10px] text-slate-500 whitespace-nowrap">
+      V. No.:{" "}
+      <span className="font-semibold text-slate-600">
+        {r.voucherNo || "—"}
+      </span>
+    </div>
+  )}
+</td>
 
               <td
                 className={
@@ -439,7 +445,7 @@ if (r.__type === "CLOSING") {
             {isOpen &&
               pdfs.map((p, idx) => (
                 <tr key={`${k}-mpdf-${p.id || idx}`} className="border-b bg-slate-50/60">
-                  <td className="px-2 py-2" colSpan={5}>
+                  <td className="px-2 py-2" colSpan={4}>
                     <a
                       href={fileHref(p, getToken())}
                       target="_blank"
