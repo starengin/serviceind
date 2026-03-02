@@ -1465,8 +1465,8 @@ function pickTotalAmount(lines) {
 function findInvoiceAndEway(lines) {
   const full = lines.join(" ");
 
-  // ✅ STRICT invoice: must start with STAR (prevents picking "e-Way")
-  const invoiceMatch = full.match(/\b(STAR[A-Z0-9\/-]{3,12})\b/i);
+  // ✅ STRICT: STAR ke baad digit MUST (prevents STARENGINEERING / STARCOMPANY etc)
+  const invoiceMatch = full.match(/\b(STAR(?=\d)[A-Z0-9\/-]{3,20})\b/i);
   const invoiceNo = invoiceMatch ? invoiceMatch[1].toUpperCase() : "";
 
   // ✅ e-way strictly 12 digits
@@ -1514,6 +1514,9 @@ function paymentCodeFromFilename(originalName) {
 function sanitizeVoucherNo(v) {
   let s = String(v || "").trim().toUpperCase(); // ✅ FIRST define
 
+    // ✅ EXTRA SAFETY: STAR ke baad digit nahi hai to reject
+  if (/^STAR(?!\d)/.test(s)) return "";
+
   // ✅ reject common wrong tokens
   if (s === "EWAY" || s === "E-WAY" || s === "EWAYBILL") return "";
 
@@ -1530,7 +1533,32 @@ function sanitizeVoucherNo(v) {
   if (s.length > 12) s = s.slice(0, 12);
 
   return s.trim();
-} 
+}
+function saleCodeFromFilename(originalName) {
+  const fname = String(originalName || "").trim();
+  if (!fname) return "";
+
+  // remove path + extension
+  const base = fname.split(/[\\/]/).pop().replace(/\.pdf$/i, "");
+
+  // Sales_0006 / Sales-STAR0006 / Sales STAR0006 / SALES_STAR0006_anything
+  const m =
+    base.match(/^sales[_\-\s]+(.+)$/i) ||      // starts with Sales_
+    base.match(/\bsales[_\-\s]+(.+)\b/i);      // contains Sales_
+
+  if (!m?.[1]) return "";
+
+  // take first token after Sales_ (stop at space)
+  let code = String(m[1]).trim().split(/\s+/)[0];
+
+  // clean
+  code = code.replace(/[^A-Za-z0-9\/-]/g, "").toUpperCase();
+
+  // optional length cap
+  if (code.length > 20) code = code.slice(0, 20);
+
+  return code;
+}
 function pickVoucherNo(type, lines, compact, originalName) {
   const t = compact;
 
@@ -1545,17 +1573,11 @@ function pickVoucherNo(type, lines, compact, originalName) {
     return m?.[1] ? String(m[1]).trim() : "";
   }
 if (type === "SALE") {
-  const { invoiceNo } = findInvoiceAndEway(lines);
+  // ✅ FORCE: always from filename only (Sales_<billno>.pdf)
+  const fromFile = saleCodeFromFilename(originalName);
+  if (fromFile) return fromFile;
 
-  // ✅ Only accept STAR-based invoice
-  const s1 = sanitizeVoucherNo(invoiceNo);
-  if (s1) return s1;
-
-  // ✅ fallback: STAR... from anywhere
-  const m = compact.match(/\b(STAR[A-Z0-9\/-]{3,20})\b/i)?.[1] || "";
-  const s2 = sanitizeVoucherNo(m);
-  if (s2) return s2;
-
+  // ✅ If filename rule not followed, return empty (front-end can show error)
   return "";
 }
 
@@ -1764,13 +1786,12 @@ app.post("/transactions/scan", uploadMem.single("pdf"), async (req, res) => {
 const rawText = String(parsed?.text || "");
 const ex = extractFromPdfSmart(rawText, req.file?.originalname || "");
 // ✅ force ISO date for <input type="date">
-const isoDate = ex?.date ? parseDateLooseAny(ex.date) || ex.date : "";
-    if (!ex?.type) {
-      return res.status(400).json({
-        message: "Scan failed: could not detect voucher type",
-        rawTextPreview: rawText.slice(0, 500),
-      });
-    }
+if (ex.type === "SALE" && !ex.voucherNo) {
+  return res.status(400).json({
+    message: 'SALE scan failed: filename must be like "Sales_<BillNo>.pdf"',
+    filename: req.file?.originalname || "",
+  });
+}
 
     return res.json({
       ok: true,
