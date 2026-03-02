@@ -1404,29 +1404,81 @@ function moneyToNumber(s) {
 }
 
 function pickTotalAmount(lines) {
-  // best: line containing Total ... ī 64,900.00 OR Total ī 20,000.00
+  // ✅ Robust total picker:
+  // - "Total ₹/ī 6,74,800.00 14,000.0 Kg" => picks 6,74,800.00 (max), not qty
+  // - avoids picking 6 / 4 / 18 from GST %, etc.
+
+  const toNum = (s) => Number(String(s).replace(/,/g, "")) || 0;
+
+  const extractMoneyCandidates = (str) => {
+    const t = String(str || "");
+
+    // Prefer real money formats:
+    // 1) 1,23,456.78
+    // 2) 123456.78
+    const a =
+      t.match(/\b\d{1,3}(?:,\d{3})+(?:\.\d{2})\b/g) || []; // with commas + 2 decimals
+    const b =
+      t.match(/\b\d+(?:\.\d{2})\b/g) || []; // plain + 2 decimals
+
+    // If decimals are missing sometimes, still consider comma numbers:
+    const c =
+      t.match(/\b\d{1,3}(?:,\d{3})+\b/g) || []; // with commas no decimals
+
+    // Merge unique
+    const all = Array.from(new Set([...a, ...b, ...c]));
+
+    // Convert to numbers & filter tiny noise (like 6, 4, 18, 9 from GST%)
+    return all
+      .map(toNum)
+      .filter((n) => Number.isFinite(n) && n >= 50); // >=50 avoids 6/4/18 etc
+  };
+
+  // ✅ 1) Best: lines containing "Total" (often contains qty also)
+  let best = 0;
   for (const l of lines) {
-    if (/^Total\b/i.test(l) || /\bTotal\b/i.test(l)) {
-      if (/[₹ī]\s*\d/.test(l) || /\d{1,3}(?:,\d{3})*(?:\.\d{2})/.test(l)) {
-        const all = l.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})|\d+(?:\.\d{2})/g);
-        if (all && all.length) return moneyToNumber(all[all.length - 1]);
-      }
+    if (/\bTotal\b/i.test(l)) {
+      const cand = extractMoneyCandidates(l);
+      if (cand.length) best = Math.max(best, ...cand); // ✅ pick MAX, not last
+    }
+  }
+  if (best > 0) return best;
+
+  // ✅ 2) Next: any line starting with currency symbol (₹ or ī)
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = String(lines[i] || "");
+    if (/^[₹ī]\s*/.test(l)) {
+      const cand = extractMoneyCandidates(l);
+      if (cand.length) return Math.max(...cand);
     }
   }
 
-  // second: any line starting with ī (your PDFs show ī 30,000.00)
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const l = lines[i];
-    if (/^[₹ī]\s*\d/.test(l)) return moneyToNumber(l);
-  }
-
-  // fallback: last monetary value in whole doc (still better than first)
+  // ✅ 3) Fallback: scan whole doc, pick max money-like number
   const joined = lines.join(" ");
-  const matches = joined.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})|\d+(?:\.\d{2})/g);
-  if (!matches || !matches.length) return 0;
-  return moneyToNumber(matches[matches.length - 1]);
-}
+  const cand = extractMoneyCandidates(joined);
+  if (cand.length) return Math.max(...cand);
 
+  return 0;
+}
+function findInvoiceAndEway(lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const l = norm(lines[i]).toLowerCase();
+    if (l.includes("invoice no") && l.includes("e-way")) {
+      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+        const v = norm(lines[j]);
+        if (!v) continue;
+
+        const parts = v.split(/\s+/).filter(Boolean);
+
+        const invoice = parts.find((p) => /^STAR\d{3,}$/i.test(p)) || "";
+        const eway = parts.find((p) => /^\d{10,20}$/.test(p)) || "";
+
+        return { invoiceNo: invoice, eWayBillNo: eway };
+      }
+    }
+  }
+  return { invoiceNo: "", eWayBillNo: "" };
+}
 function detectDocType(lines, compactLower) {
   // HEADINGS-based detect (most reliable)
   const head = (lines.slice(0, 15).join(" ") + " " + compactLower).toLowerCase();
@@ -1466,26 +1518,48 @@ function paymentCodeFromFilename(originalName) {
 function pickVoucherNo(type, lines, compact, originalName) {
   const t = compact;
 
-  if (type === "SALE") {
-    return (
-      t.match(/\bInvoice No\.\s*([A-Z0-9\-\/]+)/i)?.[1] ||
-      t.match(/\bInvoice No\s*([A-Z0-9\-\/]+)/i)?.[1] ||
-      ""
-    );
+    function codeFromFilename(prefix) {
+    const fname = String(originalName || "").trim();
+    if (!fname) return "";
+    const base = fname.split(/[\\/]/).pop().replace(/\.pdf$/i, "");
+
+    // supports: Receipt_2, Receipt-2, Credit Note_2, CreditNote_2, Purchase_3 etc
+    const rx = new RegExp("^" + prefix + "[_\\-\\s]*([A-Za-z0-9]+)\\b", "i");
+    const m = base.match(rx);
+    return m?.[1] ? String(m[1]).trim() : "";
   }
+if (type === "SALE") {
+  // ✅ avoid capturing "e-Way" from label line
+  const { invoiceNo } = findInvoiceAndEway(lines);
+  if (invoiceNo) return invoiceNo;
+
+  // fallback: STAR0007 anywhere
+  const star = compact.match(/\b(STAR\d{3,})\b/i)?.[1] || "";
+  return norm(star);
+}
 
   if (type === "RECEIPT") {
+    // ✅ 1) FIRST PRIORITY: filename Receipt_2.pdf => 2 (fixes your "22" issue)
+    const fromFile = codeFromFilename("receipt");
+    if (fromFile) return norm(fromFile);
+
+    // ✅ 2) PDF text
     for (let i = 0; i < lines.length; i++) {
       if (/^No\.\s*:?\s*$/i.test(lines[i]) || /^No\.$/i.test(lines[i])) {
         for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
           const v = norm(lines[j]);
           if (!v || v === ":" || /^Dated$/i.test(v)) continue;
+
+          // take first number only
           const m = v.match(/\b(\d{1,10})\b/);
           if (m?.[1]) return m[1];
         }
       }
     }
-    return t.match(/\bNo\.\s*:\s*(\d{1,10})\b/i)?.[1] || "";
+
+    // handles: "No. : 2 Dated : 2-Mar-26"
+    const mText = t.match(/\bNo\.\s*:\s*(\d{1,10})\b/i);
+    return mText?.[1] || "";
   }
 
   if (type === "PAYMENT") {
@@ -1514,13 +1588,32 @@ function pickVoucherNo(type, lines, compact, originalName) {
   }
 
   if (type === "PURCHASE_RETURN") {
-    return t.match(/\bDebit Note No\.\s*([A-Z0-9\-\/]+)\b/i)?.[1] || "";
+    const fromFile =
+      codeFromFilename("debit note") ||
+      codeFromFilename("debitnote") ||
+      codeFromFilename("debit_note");
+    if (fromFile) return norm(fromFile);
+
+    const fromText =
+      t.match(/\bDebit\s*Note\s*No\.?\s*:?\s*([A-Z0-9\/-]+)\b/i)?.[1] || "";
+
+    return norm(fromText);
   }
 
   if (type === "SALES_RETURN") {
-    return t.match(/\bCredit Note No\.\s*([A-Z0-9\-\/]+)\b/i)?.[1] || "";
-  }
+    // ✅ 1) FIRST PRIORITY: filename "Credit Note_2.pdf" => 2
+    const fromFile =
+      codeFromFilename("credit note") ||
+      codeFromFilename("creditnote") ||
+      codeFromFilename("credit_note");
+    if (fromFile) return norm(fromFile);
 
+    // ✅ 2) PDF text: supports newline split (compact already has spaces)
+    const fromText =
+      t.match(/\bCredit\s*Note\s*No\.?\s*:?\s*([A-Z0-9\/-]+)\b/i)?.[1] || "";
+
+    return norm(fromText);
+  }
   return "";
 }
 
@@ -1616,13 +1709,17 @@ function extractFromPdfSmart(parsedText, originalName) {
   const type = detectDocType(lines, compactLower);
   const partyName = pickParty(type, lines, compact);
   const voucherNo = pickVoucherNo(type, lines, compact, originalName);
-const date = pickDate(type, lines, compact, originalName);
+  const date = pickDate(type, lines, compact, originalName);
   const amount = pickTotalAmount(lines);
+
+  const { eWayBillNo } =
+    type === "SALE" ? findInvoiceAndEway(lines) : { eWayBillNo: "" };
 
   return {
     type,
     partyName,
     voucherNo,
+    eWayBillNo: eWayBillNo || "",
     date,
     amount: Number(amount || 0),
     drcr: drcrForType(type),
@@ -1651,16 +1748,17 @@ const isoDate = ex?.date ? parseDateLooseAny(ex.date) || ex.date : "";
 
     return res.json({
       ok: true,
-      extracted: {
-        type: ex.type,                 // RECEIPT etc.
-        partyName: ex.partyName || "", // ✅ for frontend auto select
-        date: isoDate || "",
-        voucherNo: ex.voucherNo || "", // ✅ "1"
-        amount: ex.amount ? String(ex.amount) : "",
-        drcr: ex.drcr || drcrForType(ex.type),
-        narration: ex.narration || "",
-        rawTextPreview: rawText.slice(0, 400),
-      },
+extracted: {
+  type: ex.type,
+  partyName: ex.partyName || "",
+  date: isoDate || "",
+  voucherNo: ex.voucherNo || "",
+  eWayBillNo: ex.eWayBillNo || "",
+  amount: ex.amount ? String(Number(ex.amount).toFixed(2)) : "",
+  drcr: ex.drcr || drcrForType(ex.type),
+  narration: ex.narration || "",
+  rawTextPreview: rawText.slice(0, 400),
+},
     });
   } catch (e) {
     console.error("SCAN ERROR:", e);
