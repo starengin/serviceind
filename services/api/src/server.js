@@ -1102,7 +1102,9 @@ app.post("/customers", async (req, res) => {
     });
   }
 });
-
+app.get("/ping", (req, res) => {
+  res.status(200).send("OK");
+});
 // ✅ Update customer (password optional reset)
 app.put("/customers/:id", async (req, res) => {
   try {
