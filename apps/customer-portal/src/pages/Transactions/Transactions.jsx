@@ -354,9 +354,9 @@ if (r.__type === "CLOSING") {
   {/* fixed percentages so it never exceeds viewport */}
  <colgroup>
   <col style={{ width: "24%" }} /> {/* Date */}
-  <col style={{ width: "46%" }} /> {/* Particulars (big) */}
+  <col style={{ width: "38%" }} /> {/* Particulars (big) */}
   <col style={{ width: "22%" }} /> {/* Amount */}
-  <col style={{ width: "8%" }} />  {/* Attach */}
+  <col style={{ width: "16%" }} />  {/* Attach */}
 </colgroup>
 
 <thead className="bg-slate-50 border-b">
