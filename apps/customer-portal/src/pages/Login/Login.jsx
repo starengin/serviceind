@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import { api } from "../../lib/api.js";
-import { saveAuth } from "../../lib/auth.js";
+import { saveAuth, isAuthed } from "../../lib/auth.js";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -26,6 +26,12 @@ export default function Login() {
 
   useEffect(() => {
     generateCaptcha();
+
+    // ✅ already logged-in -> go to app
+    if (isAuthed()) {
+      navigate("/app", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const validateEmail = (email) => {
@@ -37,21 +43,10 @@ export default function Login() {
     setErr("");
 
     // 🔴 VALIDATIONS
-    if (!email) {
-      return setErr("Email is required");
-    }
-
-    if (!validateEmail(email)) {
-      return setErr("Please enter a valid email address");
-    }
-
-    if (!password) {
-      return setErr("Password is required");
-    }
-
-    if (!captchaInput) {
-      return setErr("Captcha is required");
-    }
+    if (!email) return setErr("Email is required");
+    if (!validateEmail(email)) return setErr("Please enter a valid email address");
+    if (!password) return setErr("Password is required");
+    if (!captchaInput) return setErr("Captcha is required");
 
     if (Number(captchaInput) !== captchaAnswer) {
       generateCaptcha();
@@ -63,13 +58,36 @@ export default function Login() {
 
     try {
       const res = await api.login({
-  email: email.trim(),
-  password: password,
-});
-      saveAuth({ token: res.token, user: res.user });
-      navigate("/");
+        email: email.trim(),
+        password: password,
+      });
+
+      // ✅ handle different API response shapes safely
+      const token =
+        res?.token ||
+        res?.accessToken ||
+        res?.data?.token ||
+        res?.data?.accessToken ||
+        null;
+
+      const user = res?.user || res?.data?.user || null;
+
+      if (!token) {
+        // token missing -> treat as login failed (prevents redirect loop)
+        generateCaptcha();
+        setCaptchaInput("");
+        throw new Error("Login successful but token not received");
+      }
+
+      saveAuth({ token, user });
+
+      // ✅ go straight to protected area (no bouncing on "/")
+      navigate("/app", { replace: true });
     } catch (e) {
       setErr(e.message || "Invalid email or password");
+      // ✅ optional: reset captcha on any failure
+      generateCaptcha();
+      setCaptchaInput("");
     } finally {
       setLoading(false);
     }
@@ -103,6 +121,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@email.com"
+              autoComplete="email"
             />
           </div>
 
@@ -114,6 +133,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
+              autoComplete="current-password"
             />
           </div>
 
@@ -127,6 +147,7 @@ export default function Login() {
               value={captchaInput}
               onChange={(e) => setCaptchaInput(e.target.value)}
               placeholder="Enter answer"
+              inputMode="numeric"
             />
           </div>
 
