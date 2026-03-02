@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 const nav = [
   { to: "/", label: "Home" },
-  { to: "/transactions", label: "Transactions" },
+  { to: "/app/transactions", label: "Transactions" },
 ];
 
 export default function MobileSidebar() {

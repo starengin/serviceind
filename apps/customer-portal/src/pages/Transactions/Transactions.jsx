@@ -2,7 +2,6 @@
 import { api } from "../../lib/api.js";
 import { motion } from "framer-motion";
 import { getToken } from "../../lib/auth.js";
-import AttachmentMenu from "../../components/ui/AttachmentMenu";
 
 const TYPE_LABEL = {
   SALE: "Sales",
@@ -45,13 +44,14 @@ function amountMeta(r) {
 }
 
 export default function Transactions() {
-  const [openAttachId, setOpenAttachId] = useState("");
   const [rows, setRows] = useState([]);
   const [opening, setOpening] = useState(0);
   const [closing, setClosing] = useState(0);
+  
 
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [openRowId, setOpenRowId] = useState("");
 
   const [from, setFrom] = useState(() => {
     const d = new Date(Date.now() - 30 * 86400000);
@@ -104,6 +104,15 @@ export default function Transactions() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
+  function rowKey(r) {
+  return String(r.id || `${r.date || ""}-${r.voucherNo || ""}-${r.voucherType || r.type || ""}`);
+}
+
+function fileHref(p, token) {
+  const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const u = p?.url || "";
+  return `${base}${u}${u.includes("?") ? "&" : "?"}token=${encodeURIComponent(token || "")}`;
+}
 
   const onExport = () => {
     const token = getToken();
@@ -240,15 +249,15 @@ if (r.__type === "CLOSING") {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card overflow-hidden"
+        className="card"
       >
-{/* ✅ Full width always */}
-<div className="w-full overflow-x-auto">
-  <table className="w-full min-w-[900px]">
+{/* ✅ Desktop: no inner scroll. Mobile: allow horizontal only if truly needed */}
+<div className="w-full overflow-x-auto md:overflow-x-visible">
+  <table className="w-full table-fixed md:table-auto">
             <thead className="bg-slate-50 border-b">
               <tr className="text-left text-[11px] md:text-xs text-slate-500">
-                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Date</th>
-                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Voucher</th>
+                <th className="px-2 md:px-4 py-3 whitespace-nowrap">Date</th>
+                <th className="px-2 md:px-4 py-3 whitespace-nowrap">Voucher</th>
 
                 {/* ✅ Desktop columns */}
                 <th className="hidden md:table-cell px-3 md:px-4 py-3">Particulars</th>
@@ -263,7 +272,7 @@ if (r.__type === "CLOSING") {
                 <th className="md:hidden px-3 py-3">Particulars</th>
                 <th className="md:hidden px-3 py-3 text-right whitespace-nowrap">Amount</th>
 
-                <th className="px-2 md:px-4 py-3 text-right whitespace-nowrap w-[56px]">👁️</th>
+                <th className="px-2 md:px-4 py-2 md:py-3 text-right whitespace-nowrap w-[52px]">👁️</th>
               </tr>
             </thead>
 
@@ -276,86 +285,122 @@ if (r.__type === "CLOSING") {
                 </tr>
               ) : (
                 tableRows.map((r) => {
-                  const particulars = buildParticulars(r);
-                  const amt = amountMeta(r);
+  const k = rowKey(r);
+  const isOpen = openRowId === k;
+  const particulars = buildParticulars(r);
+  const amt = amountMeta(r);
+  const pdfs = Array.isArray(r.pdfs) ? r.pdfs : [];
 
-                  return (
-                    <tr
-                      key={r.id}
-                      className={
-                        r.__type === "OPENING" || r.__type === "CLOSING"
-                          ? "border-b bg-slate-50 font-semibold"
-                          : "border-b last:border-b-0 hover:bg-slate-50/60"
-                      }
-                    >
-                      <td className="px-3 md:px-4 py-3 whitespace-nowrap">
-                        {fmtDateISO(r.date)}
-                      </td>
+  return (
+    <>
+      <tr
+        key={k}
+        className={
+          r.__type === "OPENING" || r.__type === "CLOSING"
+            ? "border-b bg-slate-50 font-semibold"
+            : "border-b last:border-b-0 hover:bg-slate-50/60"
+        }
+      >
+        <td className="px-2 md:px-4 py-3 whitespace-nowrap">
+          {fmtDateISO(r.date)}
+        </td>
 
-                      <td className="px-3 md:px-4 py-3 font-medium whitespace-nowrap">
-                        {r.voucherNo || "—"}
-                      </td>
+        <td className="px-2 md:px-4 py-3 font-medium whitespace-nowrap">
+          {r.voucherNo || "—"}
+        </td>
 
-                      {/* ✅ Desktop */}
-                      <td
-                        className="hidden md:table-cell px-3 md:px-4 py-3 max-w-[520px] truncate"
-                        title={particulars}
-                      >
-                        {particulars}
-                      </td>
+        {/* ✅ Desktop */}
+        <td
+          className="hidden md:table-cell px-3 md:px-4 py-3 max-w-[520px] truncate"
+          title={particulars}
+        >
+          {particulars}
+        </td>
 
-                      <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
-                        {fmtBlank(r.debit)}
-                      </td>
+        <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
+          {fmtBlank(r.debit)}
+        </td>
 
-                      <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
-                        {fmtBlank(r.credit)}
-                      </td>
+        <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
+          {fmtBlank(r.credit)}
+        </td>
 
-                      {/* ✅ Mobile */}
-                      <td className="md:hidden px-3 py-3 min-w-0">
-                        <div className="font-semibold truncate" title={particulars}>
-                          {particulars}
-                        </div>
-                      </td>
+        {/* ✅ Mobile */}
+        <td className="md:hidden px-3 py-3 min-w-0">
+          <div className="font-semibold truncate" title={particulars}>
+            {particulars}
+          </div>
+        </td>
 
-                      <td
-                        className={
-                          "md:hidden px-3 py-3 text-right font-extrabold whitespace-nowrap " +
-                          (amt.kind === "plus"
-                            ? "text-emerald-600"
-                            : amt.kind === "minus"
-                            ? "text-rose-600"
-                            : "text-slate-400")
-                        }
-                      >
-                        {amt.kind === "zero" ? "" : `${amt.sign}${fmtMoney(amt.value)}`}
-                      </td>
+        <td
+          className={
+            "md:hidden px-3 py-3 text-right font-extrabold whitespace-nowrap " +
+            (amt.kind === "plus"
+              ? "text-emerald-600"
+              : amt.kind === "minus"
+              ? "text-rose-600"
+              : "text-slate-400")
+          }
+        >
+          {amt.kind === "zero" ? "" : `${amt.sign}${fmtMoney(amt.value)}`}
+        </td>
 
-                      {/* Attachment */}
-                      <td className="px-2 md:px-4 py-3 text-right w-[56px]">
-                        {r.__type === "OPENING" || r.__type === "CLOSING" ? (
-                          <span className="text-xs text-slate-400">—</span>
-                        ) : (
-                          <AttachmentMenu
-                            pdfs={r.pdfs || []}
-                            rowId={String(r.id || `${r.date}-${r.voucherNo}`)}
-                            openId={openAttachId}
-                            setOpenId={setOpenAttachId}
-                            makeUrl={(p, idx, token) => {
-                              const base =
-                                import.meta.env.VITE_API_URL || "http://localhost:5000";
-                              const u = p.url || "";
-                              return `${base}${u}${u.includes("?") ? "&" : "?"}token=${encodeURIComponent(
-                                token || ""
-                              )}`;
-                            }}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
+        {/* Attachment button */}
+        <td className="px-2 md:px-4 py-2 md:py-3 text-right w-[52px]">
+          {r.__type === "OPENING" || r.__type === "CLOSING" ? (
+            <span className="text-xs text-slate-400">—</span>
+          ) : pdfs.length ? (
+            <button
+              type="button"
+              className="attachBtn attachBtn--grad"
+              title="View attachments"
+              onClick={() => setOpenRowId((prev) => (prev === k ? "" : k))}
+            >
+              <span className="attachBtn__icon" aria-hidden="true">
+                ⬇
+              </span>
+            </button>
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+        </td>
+      </tr>
+
+      {/* ✅ Expanded attachment rows (same txn ke niche) */}
+      {isOpen &&
+        pdfs.map((p, idx) => (
+          <tr key={`${k}-pdf-${p.id || idx}`} className="border-b bg-slate-50/60">
+            <td className="px-2 md:px-4 py-2 md:py-3" colSpan={6}>
+              <a
+                href={fileHref(p, getToken())}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
+                title={p.name || `PDF ${idx + 1}`}
+              >
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-50">
+                  📄
+                </span>
+
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-800">
+                    PDF {idx + 1}
+                  </div>
+                  <div className="text-xs text-slate-500 truncate max-w-[260px] md:max-w-[520px]">
+                    {p.name || "Attachment"}
+                  </div>
+                </div>
+
+                <span className="ml-auto text-xs font-bold text-slate-600">
+                  Open →
+                </span>
+              </a>
+            </td>
+          </tr>
+        ))}
+    </>
+  );
+})
               )}
             </tbody>
           </table>
