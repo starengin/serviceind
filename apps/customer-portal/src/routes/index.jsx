@@ -1,27 +1,43 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Login from "../pages/Login/Login.jsx";
-import Home from "../pages/Home/Home.jsx";
-import Transactions from "../pages/Transactions/Transactions.jsx";
-import NotFound from "../pages/NotFound.jsx";
-import AppShell from "../components/layout/AppShell.jsx";
-import { isAuthed } from "../lib/auth.js";
+﻿import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import ProtectedRoute from "../components/ProtectedRoute";
 
-function Private({ children }) {
-  if (!isAuthed()) return <Navigate to="/login" replace />;
-  return children;
-}
+// pages
+import Login from "../pages/Login";
+import CustomerLayout from "../layouts/CustomerLayout";
+import Home from "../pages/Home";
+import Ledger from "../pages/Ledger";
+import Transactions from "../pages/Transactions";
 
-export default function Router() {
+import { isAuthed } from "../lib/auth";
+
+export default function AppRoutes() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Private><AppShell /></Private>}>
-          <Route index element={<Home />} />
-          <Route path="transactions" element={<Transactions />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      {/* portal.stareng.co.in hit -> login OR app */}
+      <Route
+        path="/"
+        element={isAuthed() ? <Navigate to="/app" replace /> : <Navigate to="/login" replace />}
+      />
+
+      <Route path="/login" element={<Login />} />
+
+      {/* Protected area */}
+      <Route
+        path="/app"
+        element={
+          <ProtectedRoute>
+            <CustomerLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Home />} />
+        <Route path="ledger" element={<Ledger />} />
+        <Route path="transactions" element={<Transactions />} />
+      </Route>
+
+      {/* fallback */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
   );
 }

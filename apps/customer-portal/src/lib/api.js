@@ -1,6 +1,7 @@
 ﻿import { getToken, logout } from "./auth.js";
 
 const API = import.meta.env.VITE_API_URL;
+const PUBLIC_HOME = import.meta.env.VITE_PUBLIC_HOME_URL || "https://www.stareng.co.in";
 
 async function request(path, { method = "GET", body } = {}) {
   const token = getToken();
@@ -16,18 +17,14 @@ async function request(path, { method = "GET", body } = {}) {
 
   const data = await res.json().catch(() => ({}));
 
-  // ✅ 401: logout ONLY if token exists (means session expired)
-  // ✅ login route par token nahi hota, so error message will show properly
+  // ✅ 401 => token exists => session expired => logout + go public home
   if (res.status === 401 && token) {
     logout();
-    window.location.href = "https://www.stareng.co.in";
+    window.location.href = PUBLIC_HOME;
     throw new Error(data?.message || "Session expired. Please login again.");
   }
 
-  // ✅ Normal errors (including login wrong email/password)
-  if (!res.ok) {
-    throw new Error(data?.message || "Request failed");
-  }
+  if (!res.ok) throw new Error(data?.message || "Request failed");
 
   return data;
 }

@@ -4,6 +4,46 @@ import { motion } from "framer-motion";
 import { getToken } from "../../lib/auth.js";
 import AttachmentMenu from "../../components/ui/AttachmentMenu";
 
+const TYPE_LABEL = {
+  SALE: "Sales",
+  PURCHASE: "Purchase",
+  RECEIPT: "Receipt",
+  PAYMENT: "Payment",
+  SALES_RETURN: "Sales Return",
+  PURCHASE_RETURN: "Purchase Return",
+  JOURNAL: "Journal",
+};
+
+function nNum(x) {
+  const v = Number(x || 0);
+  return Number.isFinite(v) ? v : 0;
+}
+
+// header badges me 0 bhi dikhana hai, so fmt keeps 0
+function fmt(n) {
+  const x = Number(n || 0);
+  return x ? x.toLocaleString("en-IN") : "0";
+}
+
+// table me 0 blank chahiye
+function fmtBlank(n) {
+  const x = Number(n || 0);
+  return x ? x.toLocaleString("en-IN") : "";
+}
+
+function fmtMoney(n) {
+  const x = nNum(n);
+  return x ? x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+}
+
+function amountMeta(r) {
+  const debit = nNum(r?.debit);
+  const credit = nNum(r?.credit);
+  if (debit > 0) return { sign: "+", value: debit, kind: "plus" };
+  if (credit > 0) return { sign: "-", value: credit, kind: "minus" };
+  return { sign: "", value: 0, kind: "zero" };
+}
+
 export default function Transactions() {
   const [openAttachId, setOpenAttachId] = useState("");
   const [rows, setRows] = useState([]);
@@ -35,8 +75,6 @@ export default function Transactions() {
     setLoading(true);
     try {
       const q = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-
-      // ✅ Must return: { opening, closing, items }
       const r = await api.transactions(q);
 
       const items = Array.isArray(r.items) ? r.items : [];
@@ -67,7 +105,6 @@ export default function Transactions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
 
-
   const onExport = () => {
     const token = getToken();
     if (!token) {
@@ -82,23 +119,18 @@ export default function Transactions() {
   const tableRows = useMemo(() => {
     if (loading) return [];
 
-const openingRow = {
-  __type: "OPENING",
-  id: "opening",
-  date: from,
-  voucherNo: "—",
-  voucherType: "—",
-  narration:
-    opening > 0
-      ? "To Opening Balance"
-      : opening < 0
-      ? "By Opening Balance"
-      : "Opening Balance",
-  debit: opening > 0 ? opening : 0,
-  credit: opening < 0 ? Math.abs(opening) : 0,
-  runningBalance: opening,
-  pdfs: [],
-};
+    const openingRow = {
+      __type: "OPENING",
+      id: "opening",
+      date: from,
+      voucherNo: "—",
+      voucherType: "—",
+      narration: "",
+      debit: opening > 0 ? opening : 0,
+      credit: opening < 0 ? Math.abs(opening) : 0,
+      runningBalance: opening,
+      pdfs: [],
+    };
 
     const closingRow = {
       __type: "CLOSING",
@@ -106,19 +138,48 @@ const openingRow = {
       date: to,
       voucherNo: "—",
       voucherType: "—",
-      narration: "By Closing Balance",
+      narration: "",
       debit: closing > 0 ? closing : 0,
       credit: closing < 0 ? Math.abs(closing) : 0,
       runningBalance: closing,
       pdfs: [],
     };
 
-    // ✅ if no txns => just opening + closing
     if (!rows.length) return [openingRow, closingRow];
-
-    // ✅ txns exist => opening + txns + closing
     return [openingRow, ...rows, closingRow];
   }, [rows, from, to, opening, closing, loading]);
+
+  // ✅ Particulars rule (To/By + type + journal narration)
+  function buildParticulars(r) {
+    const debit = nNum(r?.debit);
+    const credit = nNum(r?.credit);
+    const side = debit > 0 ? "To" : credit > 0 ? "By" : "To";
+
+    if (r.__type === "OPENING") {
+      if (opening > 0) return "To Opening Balance";
+      if (opening < 0) return "By Opening Balance";
+      return "Opening Balance";
+    }
+
+    if (r.__type === "CLOSING") {
+      // You asked "By Closing Balance" (always)
+      return "By Closing Balance";
+    }
+
+    const typeRaw = String(r?.voucherType || r?.type || "").toUpperCase();
+    const label = TYPE_LABEL[typeRaw] || (typeRaw ? typeRaw.replaceAll("_", " ") : "Entry");
+    const narration = String(r?.narration || "").trim();
+
+    if (typeRaw === "JOURNAL") {
+      const txt = narration && narration !== "-" ? narration : "Journal";
+      return `${side} ${txt}`;
+    }
+
+    let p = `${side} ${label}`;
+    // narration optional after dash
+    if (narration && narration !== "-") p += ` — ${narration}`;
+    return p;
+  }
 
   return (
     <div className="space-y-4">
@@ -148,18 +209,18 @@ const openingRow = {
             <span className="text-slate-500">From</span>
             <div className="flex gap-2 items-center">
               <input
-  type="date"
-  value={from}
-  onChange={(e) => setFrom(e.target.value)}
-  className="border rounded-xl px-3 h-10"
-/>
- <span className="text-slate-500">To</span>
-<input
-  type="date"
-  value={to}          
-  onChange={(e) => setTo(e.target.value)}
-  className="border rounded-xl px-3 h-10"
-/>
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="border rounded-xl px-3 h-10"
+              />
+              <span className="text-slate-500">To</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="border rounded-xl px-3 h-10"
+              />
             </div>
             <div className="flex gap-2">
               <button className="btn-ghost" onClick={load}>
@@ -180,71 +241,121 @@ const openingRow = {
         animate={{ opacity: 1, y: 0 }}
         className="card overflow-hidden"
       >
-        <div className="overflow-auto">
-          <table className="min-w-[980px] w-full">
+        {/* ✅ Mobile: no overflow scroll. Desktop: allow scroll if needed */}
+        <div className="md:overflow-auto">
+          {/* ✅ Desktop needs width; Mobile fits naturally */}
+          <table className="w-full md:min-w-[880px]">
             <thead className="bg-slate-50 border-b">
-              <tr className="text-left text-xs text-slate-500">
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Voucher</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Narration</th>
-                <th className="px-4 py-3 text-right">Debit</th>
-                <th className="px-4 py-3 text-right">Credit</th>
-                <th className="px-4 py-3 text-right">Balance</th>
-                <th className="px-4 py-3 text-right">Attachment</th>
+              <tr className="text-left text-[11px] md:text-xs text-slate-500">
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Date</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Voucher</th>
+
+                {/* ✅ Desktop columns */}
+                <th className="hidden md:table-cell px-3 md:px-4 py-3">Particulars</th>
+                <th className="hidden md:table-cell px-3 md:px-4 py-3 text-right whitespace-nowrap">
+                  Debit
+                </th>
+                <th className="hidden md:table-cell px-3 md:px-4 py-3 text-right whitespace-nowrap">
+                  Credit
+                </th>
+
+                {/* ✅ Mobile columns */}
+                <th className="md:hidden px-3 py-3">Particulars</th>
+                <th className="md:hidden px-3 py-3 text-right whitespace-nowrap">Amount</th>
+
+                <th className="px-3 md:px-4 py-3 text-right whitespace-nowrap">👁️</th>
               </tr>
             </thead>
 
-            <tbody className="text-sm">
+            <tbody className="text-[12px] md:text-sm">
               {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
                     Loading...
                   </td>
                 </tr>
               ) : (
-                tableRows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className={
-                      r.__type === "OPENING" || r.__type === "CLOSING"
-                        ? "border-b bg-slate-50 font-semibold"
-                        : "border-b last:border-b-0 hover:bg-slate-50/60"
-                    }
-                  >
-                    <td className="px-4 py-3">{fmtDateISO(r.date)}</td>
-                    <td className="px-4 py-3 font-medium">{r.voucherNo || "-"}</td>
-                    <td className="px-4 py-3">{r.voucherType || "-"}</td>
-                    <td className="px-4 py-3 max-w-[420px] truncate" title={r.narration || ""}>
-                      {r.narration || "-"}
-                    </td>
+                tableRows.map((r) => {
+                  const particulars = buildParticulars(r);
+                  const amt = amountMeta(r);
 
-                    {/* ✅ Zero => Blank */}
-                    <td className="px-4 py-3 text-right">{fmtBlank(r.debit)}</td>
-                    <td className="px-4 py-3 text-right">{fmtBlank(r.credit)}</td>
-                    <td className="px-4 py-3 text-right font-semibold">
-                      {fmtBlank(r.runningBalance)}
-                    </td>
+                  return (
+                    <tr
+                      key={r.id}
+                      className={
+                        r.__type === "OPENING" || r.__type === "CLOSING"
+                          ? "border-b bg-slate-50 font-semibold"
+                          : "border-b last:border-b-0 hover:bg-slate-50/60"
+                      }
+                    >
+                      <td className="px-3 md:px-4 py-3 whitespace-nowrap">
+                        {fmtDateISO(r.date)}
+                      </td>
 
-                    <td className="px-4 py-3 text-right">
-  {r.__type === "OPENING" || r.__type === "CLOSING" ? (
-    <span className="text-xs text-slate-400">—</span>
-  ) : (
-    <AttachmentMenu
-      pdfs={r.pdfs || []}
-      rowId={String(r.id || `${r.date}-${r.voucherNo}`)}
-      openId={openAttachId}
-      setOpenId={setOpenAttachId}
-      makeUrl={(p, idx, token) => {
-        const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        const u = p.url || "";
-        return `${base}${u}${u.includes("?") ? "&" : "?"}token=${encodeURIComponent(token || "")}`;
-      }}
-    />
-  )}
-</td>
-                  </tr>
-                ))
+                      <td className="px-3 md:px-4 py-3 font-medium whitespace-nowrap">
+                        {r.voucherNo || "—"}
+                      </td>
+
+                      {/* ✅ Desktop */}
+                      <td
+                        className="hidden md:table-cell px-3 md:px-4 py-3 max-w-[520px] truncate"
+                        title={particulars}
+                      >
+                        {particulars}
+                      </td>
+
+                      <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
+                        {fmtBlank(r.debit)}
+                      </td>
+
+                      <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
+                        {fmtBlank(r.credit)}
+                      </td>
+
+                      {/* ✅ Mobile */}
+                      <td className="md:hidden px-3 py-3 min-w-0">
+                        <div className="font-semibold truncate" title={particulars}>
+                          {particulars}
+                        </div>
+                      </td>
+
+                      <td
+                        className={
+                          "md:hidden px-3 py-3 text-right font-extrabold whitespace-nowrap " +
+                          (amt.kind === "plus"
+                            ? "text-emerald-600"
+                            : amt.kind === "minus"
+                            ? "text-rose-600"
+                            : "text-slate-400")
+                        }
+                      >
+                        {amt.kind === "zero" ? "" : `${amt.sign}${fmtMoney(amt.value)}`}
+                      </td>
+
+                      {/* Attachment */}
+                      <td className="px-3 md:px-4 py-3 text-right">
+                        {r.__type === "OPENING" || r.__type === "CLOSING" ? (
+                          <span className="text-xs text-slate-400">—</span>
+                        ) : (
+                          <AttachmentMenu
+                            pdfs={r.pdfs || []}
+                            rowId={String(r.id || `${r.date}-${r.voucherNo}`)}
+                            openId={openAttachId}
+                            setOpenId={setOpenAttachId}
+                            makeUrl={(p, idx, token) => {
+                              const base =
+                                import.meta.env.VITE_API_URL || "http://localhost:5000";
+                              const u = p.url || "";
+                              return `${base}${u}${u.includes("?") ? "&" : "?"}token=${encodeURIComponent(
+                                token || ""
+                              )}`;
+                            }}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -256,16 +367,4 @@ const openingRow = {
       </div>
     </div>
   );
-}
-
-// header badges me 0 bhi dikhana hai, so fmt keeps 0
-function fmt(n) {
-  const x = Number(n || 0);
-  return x ? x.toLocaleString("en-IN") : "0";
-}
-
-// table me 0 blank chahiye
-function fmtBlank(n) {
-  const x = Number(n || 0);
-  return x ? x.toLocaleString("en-IN") : "";
 }

@@ -1,12 +1,23 @@
 import React, { useEffect, useRef } from "react";
 import { getToken } from "../../lib/auth";
 
-function EyeIcon() {
+function DownloadViewIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="currentColor"
-        d="M12 5c5.5 0 9.6 4.1 11 7c-1.4 2.9-5.5 7-11 7S2.4 14.9 1 12c1.4-2.9 5.5-7 11-7Zm0 2C7.7 7 4.3 10 3.2 12c1.1 2 4.5 5 8.8 5s7.7-3 8.8-5C19.7 10 16.3 7 12 7Zm0 2.5A2.5 2.5 0 1 1 12 14a2.5 2.5 0 0 1 0-5Z"
+        d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4.0 4.0a1 1 0 0 1-1.4 0l-4.0-4.0a1 1 0 1 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"
+      />
+    </svg>
+  );
+}
+
+function DocIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 1.5V9h4.5L14 4.5ZM9 12h6a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Zm0 4h6a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"
       />
     </svg>
   );
@@ -14,7 +25,7 @@ function EyeIcon() {
 
 export default function AttachmentMenu({
   pdfs = [],
-  makeUrl,       // (p) => full url
+  makeUrl, // (p, idx, token) => full url
   openId,
   setOpenId,
   rowId,
@@ -37,15 +48,22 @@ export default function AttachmentMenu({
     <div className="attachWrap" ref={ref}>
       <button
         type="button"
-        className="attachBtn"
+        className={"attachBtn attachBtn--grad " + (isOpen ? "isOpen" : "")}
         title={`Attachments (${pdfs.length})`}
         onClick={() => setOpenId(isOpen ? "" : rowId)}
       >
-        <EyeIcon />
+        <span className="attachBtn__icon">
+          <DownloadViewIcon />
+        </span>
+        <span className="attachBtn__count">{pdfs.length}</span>
       </button>
 
       {isOpen && (
         <div className="attachMenu">
+          <div className="attachMenuHead">
+            Attachments <span className="attachMenuPill">{pdfs.length}</span>
+          </div>
+
           {pdfs.map((p, idx) => (
             <a
               key={p.id || p.url || idx}
@@ -56,10 +74,18 @@ export default function AttachmentMenu({
               title={p.name || `PDF ${idx + 1}`}
               onClick={() => setOpenId("")}
             >
-              👁️ PDF {idx + 1}
-              <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                <div className="attachMeta">{(p.name || "").slice(0, 24)}</div>
+              <span className="attachItemIcon">
+                <DocIcon />
+              </span>
+
+              <div className="attachItemBody">
+                <div className="attachItemTitle">PDF {idx + 1}</div>
+                <div className="attachMeta">
+                  {(p.name || "Attachment").slice(0, 34)}
+                </div>
               </div>
+
+              <span className="attachItemArrow" aria-hidden="true">›</span>
             </a>
           ))}
         </div>
