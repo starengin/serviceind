@@ -1782,30 +1782,30 @@ app.post("/transactions/scan", uploadMem.single("pdf"), async (req, res) => {
 
     const parsed = await pdfParse(req.file.buffer);
 
-    // ✅ keep original text (with newlines) for better patterns like "No. : 1" and "Dated : 2-May-25"
-const rawText = String(parsed?.text || "");
-const ex = extractFromPdfSmart(rawText, req.file?.originalname || "");
-// ✅ force ISO date for <input type="date">
-if (ex.type === "SALE" && !ex.voucherNo) {
-  return res.status(400).json({
-    message: 'SALE scan failed: filename must be like "Sales_<BillNo>.pdf"',
-    filename: req.file?.originalname || "",
-  });
-}
+    const rawText = String(parsed?.text || "");
+    const ex = extractFromPdfSmart(rawText, req.file?.originalname || "");
+
+    // ✅ FORCE: SALE voucherNo always from filename Sales_<billno>.pdf
+    if (ex.type === "SALE" && !ex.voucherNo) {
+      return res.status(400).json({
+        message: 'SALE scan failed: filename must be like "Sales_<BillNo>.pdf"',
+        filename: req.file?.originalname || "",
+      });
+    }
 
     return res.json({
       ok: true,
-extracted: {
-  type: ex.type,
-  partyName: ex.partyName || "",
-  date: isoDate || "",
-  voucherNo: ex.voucherNo || "",
-  eWayBillNo: ex.eWayBillNo || "",
-  amount: ex.amount ? String(Number(ex.amount).toFixed(2)) : "",
-  drcr: ex.drcr || drcrForType(ex.type),
-  narration: ex.narration || "",
-  rawTextPreview: rawText.slice(0, 400),
-},
+      extracted: {
+        type: ex.type,
+        partyName: ex.partyName || "",
+        date: ex.date || "",               // ✅ FIX: isoDate removed, use ex.date
+        voucherNo: ex.voucherNo || "",
+        eWayBillNo: ex.eWayBillNo || "",
+        amount: ex.amount ? String(Number(ex.amount).toFixed(2)) : "",
+        drcr: ex.drcr || drcrForType(ex.type),
+        narration: ex.narration || "",
+        rawTextPreview: rawText.slice(0, 400),
+      },
     });
   } catch (e) {
     console.error("SCAN ERROR:", e);
