@@ -1041,39 +1041,73 @@ app.post("/customers", async (req, res) => {
       return res.status(400).json({ message: "Name, Email, Password required" });
     }
 
+    const cleanEmail = String(email).toLowerCase().trim();
+
+    // ✅ duplicate email check
+    const exists = await prisma.user.findFirst({
+      where: { email: cleanEmail },
+      select: { id: true },
+    });
+    if (exists) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
     const hash = await bcrypt.hash(String(password), 10);
 
     const created = await prisma.user.create({
       data: {
         role: "CUSTOMER",
         name: String(name).trim(),
-        email: String(email).toLowerCase().trim(),
+        email: cleanEmail,
         passwordHash: hash,
       },
       select: { id: true, name: true, email: true },
     });
 
-    // ✅ IMPORTANT: respond immediately (prevents admin 15s timeout)
+    // ✅ respond ONCE only (customer create confirm)
     res.json({ ok: true, customer: created });
 
-    // ✅ Send welcome email in background (Zoho can be slow)
+    // ✅ WELCOME EMAIL in background (best effort)
     setImmediate(async () => {
       try {
+        // ---- OPTION A (BEST): RESEND ----
+        if (process.env.RESEND_API_KEY) {
+          await resend.emails.send({
+            from: "STAR Engineering <noreply@stareng.co.in>",
+            to: created.email,
+            subject: "Welcome to STAR Engineering – Your Portal Login",
+            html: welcomeEmailHTML({
+              name: created.name,
+              email: created.email,
+              password: String(password),
+            }),
+          });
+          console.log("✅ WELCOME EMAIL SENT (Resend)");
+          return;
+        }
+
+        // ---- OPTION B: ZOHO SMTP fallback ----
         await smtp.sendMail({
           from: process.env.ZOHO_EMAIL,
           to: created.email,
           subject: "Welcome to STAR Engineering – Your Portal Login",
-          html: welcomeEmailHTML({ name: created.name, email: created.email, password }),
+          html: welcomeEmailHTML({
+            name: created.name,
+            email: created.email,
+            password: String(password),
+          }),
         });
-        console.log("✅ WELCOME EMAIL SENT");
+        console.log("✅ WELCOME EMAIL SENT (Zoho)");
       } catch (mailErr) {
         console.error("❌ WELCOME EMAIL FAILED (ignored):", mailErr?.message || mailErr);
       }
     });
-return res.json({ ok: true, customer: created, emailSent: true });
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ message: "Create failed", details: String(e.message || e) });
+    console.error("CREATE CUSTOMER ERROR:", e);
+    return res.status(500).json({
+      message: "Create failed",
+      details: String(e.message || e),
+    });
   }
 });
 
