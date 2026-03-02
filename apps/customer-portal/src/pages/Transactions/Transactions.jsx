@@ -256,161 +256,215 @@ if (r.__type === "CLOSING") {
         className="card"
       >
 {/* ✅ Desktop: no inner scroll. Mobile: allow horizontal only if truly needed */}
-<div className="w-full overflow-x-auto md:overflow-x-visible">
-  <table className="w-full table-fixed md:table-auto">
-            <thead className="bg-slate-50 border-b">
-              <tr className="text-left text-[11px] md:text-xs text-slate-500">
-<th className="px-2 md:px-4 py-2 md:py-3 whitespace-nowrap w-[92px] md:w-auto">Date</th>
-<th className="px-2 md:px-4 py-2 md:py-3 whitespace-nowrap w-[96px] md:w-auto">Voucher</th>
+<div className="w-full overflow-x-hidden">
+{/* =======================
+    DESKTOP TABLE (md+)
+======================= */}
+<table className="hidden md:table w-full table-auto">
+  <thead className="bg-slate-50 border-b">
+    <tr className="text-left text-xs text-slate-500">
+      <th className="px-4 py-3 whitespace-nowrap">Date</th>
+      <th className="px-4 py-3 whitespace-nowrap">Voucher</th>
+      <th className="px-4 py-3">Particulars</th>
+      <th className="px-4 py-3 text-right whitespace-nowrap">Debit</th>
+      <th className="px-4 py-3 text-right whitespace-nowrap">Credit</th>
+      <th className="px-4 py-3 text-right whitespace-nowrap w-[56px]">👁️</th>
+    </tr>
+  </thead>
 
-                {/* ✅ Desktop columns */}
-                <th className="hidden md:table-cell px-3 md:px-4 py-3">Particulars</th>
-                <th className="hidden md:table-cell px-3 md:px-4 py-3 text-right whitespace-nowrap">
-                  Debit
-                </th>
-                <th className="hidden md:table-cell px-3 md:px-4 py-3 text-right whitespace-nowrap">
-                  Credit
-                </th>
+  <tbody className="text-sm">
+    {loading ? (
+      <tr>
+        <td className="px-4 py-6 text-slate-500" colSpan={6}>Loading...</td>
+      </tr>
+    ) : (
+      tableRows.map((r) => {
+        const k = rowKey(r);
+        const isOpen = openRowId === k;
+        const particulars = buildParticulars(r);
+        const pdfs = Array.isArray(r.pdfs) ? r.pdfs : [];
 
-                {/* ✅ Mobile columns */}
-<th className="md:hidden px-2 py-2 w-[140px]">Particulars</th>
-<th className="md:hidden px-2 py-2 text-right whitespace-nowrap w-[110px]">Amount</th>
+        return (
+          <>
+            <tr
+              key={k}
+              className={
+                r.__type === "OPENING" || r.__type === "CLOSING"
+                  ? "border-b bg-slate-50 font-semibold"
+                  : "border-b hover:bg-slate-50/60"
+              }
+            >
+              <td className="px-4 py-3 whitespace-nowrap">{fmtDateISO(r.date)}</td>
+              <td className="px-4 py-3 font-medium whitespace-nowrap">{r.voucherNo || "—"}</td>
+              <td className="px-4 py-3 max-w-[620px] truncate" title={particulars}>{particulars}</td>
+              <td className="px-4 py-3 text-right">{fmtBlank(r.debit)}</td>
+              <td className="px-4 py-3 text-right">{fmtBlank(r.credit)}</td>
 
-                <th className="px-2 md:px-4 py-2 md:py-3 text-right whitespace-nowrap w-[44px] md:w-[52px]">👁️</th>
-              </tr>
-            </thead>
+              <td className="px-4 py-3 text-right w-[56px]">
+                {r.__type === "OPENING" || r.__type === "CLOSING" ? (
+                  <span className="text-xs text-slate-400">—</span>
+                ) : pdfs.length ? (
+                  <button
+                    type="button"
+                    className="attachBtn attachBtn--grad"
+                    title="View attachments"
+                    onClick={() => setOpenRowId((prev) => (prev === k ? "" : k))}
+                  >
+                    <span className="attachBtn__icon" aria-hidden="true">⬇</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400">—</span>
+                )}
+              </td>
+            </tr>
 
-            <tbody className="text-[12px] md:text-sm">
-              {loading ? (
-                <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
-                    Loading...
+            {isOpen &&
+              pdfs.map((p, idx) => (
+                <tr key={`${k}-pdf-${p.id || idx}`} className="border-b bg-slate-50/60">
+                  <td className="px-4 py-3" colSpan={6}>
+                    <a
+                      href={fileHref(p, getToken())}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
+                      title={p.name || `PDF ${idx + 1}`}
+                    >
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-50">📄</span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-800">PDF {idx + 1}</div>
+                        <div className="text-xs text-slate-500 truncate max-w-[520px]">{p.name || "Attachment"}</div>
+                      </div>
+                      <span className="ml-auto text-xs font-bold text-slate-600">Open →</span>
+                    </a>
                   </td>
                 </tr>
-              ) : (
-                tableRows.map((r) => {
-  const k = rowKey(r);
-  const isOpen = openRowId === k;
-  const particulars = buildParticulars(r);
-  const amt = amountMeta(r);
-  const pdfs = Array.isArray(r.pdfs) ? r.pdfs : [];
+              ))}
+          </>
+        );
+      })
+    )}
+  </tbody>
+</table>
 
-  return (
-    <>
-      <tr
-        key={k}
-        className={
-          r.__type === "OPENING" || r.__type === "CLOSING"
-            ? "border-b bg-slate-50 font-semibold"
-            : "border-b last:border-b-0 hover:bg-slate-50/60"
-        }
-      >
-        <td className="px-2 md:px-4 py-3 whitespace-nowrap">
-          {fmtDateISO(r.date)}
-        </td>
+{/* =======================
+    MOBILE TABLE (<md)
+    (NO horizontal scroll)
+======================= */}
+<table className="md:hidden w-full table-fixed">
+  {/* fixed percentages so it never exceeds viewport */}
+  <colgroup>
+    <col style={{ width: "26%" }} />
+    <col style={{ width: "22%" }} />
+    <col style={{ width: "30%" }} />
+    <col style={{ width: "18%" }} />
+    <col style={{ width: "4%" }} />
+  </colgroup>
 
-        <td className="px-2 md:px-4 py-2 md:py-3 font-medium text-[11px] leading-4 whitespace-normal break-words">
-          {r.voucherNo || "—"}
-        </td>
+  <thead className="bg-slate-50 border-b">
+    <tr className="text-left text-[11px] text-slate-500">
+      <th className="px-2 py-2">Date</th>
+      <th className="px-2 py-2">Voucher</th>
+      <th className="px-2 py-2">Particulars</th>
+      <th className="px-2 py-2 text-right">Amount</th>
+      <th className="px-2 py-2 text-right">👁️</th>
+    </tr>
+  </thead>
 
-        {/* ✅ Desktop */}
-        <td
-          className="hidden md:table-cell px-3 md:px-4 py-3 max-w-[520px] truncate"
-          title={particulars}
-        >
-          {particulars}
-        </td>
-
-        <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
-          {fmtBlank(r.debit)}
-        </td>
-
-        <td className="hidden md:table-cell px-3 md:px-4 py-3 text-right">
-          {fmtBlank(r.credit)}
-        </td>
-
-        {/* ✅ Mobile */}
-<td className="md:hidden px-2 py-2 align-top">
-  <div
-    className="font-semibold text-[11px] leading-4 whitespace-normal break-words"
-    title={particulars}
-  >
-    {particulars}
-  </div>
-</td>
-
-        <td
-          className={
-            "md:hidden px-2 py-2 text-right text-[11px] leading-4 font-extrabold whitespace-nowrap " +
-            (amt.kind === "plus"
-              ? "text-emerald-600"
-              : amt.kind === "minus"
-              ? "text-rose-600"
-              : "text-slate-400")
-          }
-        >
-          {amt.kind === "zero" ? "" : `${amt.sign}${fmtMoney(amt.value)}`}
-        </td>
-
-        {/* Attachment button */}
-        <td className="px-2 md:px-4 py-2 md:py-3 text-right w-[52px]">
-          {r.__type === "OPENING" || r.__type === "CLOSING" ? (
-            <span className="text-xs text-slate-400">—</span>
-          ) : pdfs.length ? (
-            <button
-              type="button"
-              className="attachBtn attachBtn--grad"
-              title="View attachments"
-              onClick={() => setOpenRowId((prev) => (prev === k ? "" : k))}
-            >
-              <span className="attachBtn__icon" aria-hidden="true">
-                ⬇
-              </span>
-            </button>
-          ) : (
-            <span className="text-xs text-slate-400">—</span>
-          )}
-        </td>
+  <tbody className="text-[11px]">
+    {loading ? (
+      <tr>
+        <td className="px-2 py-4 text-slate-500" colSpan={5}>Loading...</td>
       </tr>
+    ) : (
+      tableRows.map((r) => {
+        const k = rowKey(r);
+        const isOpen = openRowId === k;
+        const particulars = buildParticulars(r);
+        const amt = amountMeta(r);
+        const pdfs = Array.isArray(r.pdfs) ? r.pdfs : [];
 
-      {/* ✅ Expanded attachment rows (same txn ke niche) */}
-      {isOpen &&
-        pdfs.map((p, idx) => (
-          <tr key={`${k}-pdf-${p.id || idx}`} className="border-b bg-slate-50/60">
-            <td className="px-2 md:px-4 py-2 md:py-3" colSpan={6}>
-              <a
-                href={fileHref(p, getToken())}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 hover:bg-slate-50"
-                title={p.name || `PDF ${idx + 1}`}
-              >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border bg-slate-50">
-                  📄
-                </span>
+        return (
+          <>
+            <tr
+              key={k}
+              className={
+                r.__type === "OPENING" || r.__type === "CLOSING"
+                  ? "border-b bg-slate-50 font-semibold"
+                  : "border-b"
+              }
+            >
+              <td className="px-2 py-2 align-top whitespace-nowrap">{fmtDateISO(r.date)}</td>
 
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-800">
-                    PDF {idx + 1}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate max-w-[260px] md:max-w-[520px]">
-                    {p.name || "Attachment"}
-                  </div>
+              <td className="px-2 py-2 align-top break-words">
+                {r.voucherNo || "—"}
+              </td>
+
+              <td className="px-2 py-2 align-top">
+                <div className="whitespace-normal break-words leading-4">
+                  {particulars}
                 </div>
+              </td>
 
-                <span className="ml-auto text-xs font-bold text-slate-600">
-                  Open →
-                </span>
-              </a>
-            </td>
-          </tr>
-        ))}
-    </>
-  );
-})
-              )}
-            </tbody>
-          </table>
+              <td
+                className={
+                  "px-2 py-2 text-right font-extrabold whitespace-nowrap " +
+                  (amt.kind === "plus"
+                    ? "text-emerald-600"
+                    : amt.kind === "minus"
+                    ? "text-rose-600"
+                    : "text-slate-400")
+                }
+              >
+                {amt.kind === "zero" ? "" : `${amt.sign}${fmtMoney(amt.value)}`}
+              </td>
+
+              <td className="px-2 py-2 text-right">
+                {r.__type === "OPENING" || r.__type === "CLOSING" ? (
+                  <span className="text-slate-400">—</span>
+                ) : pdfs.length ? (
+                  <button
+                    type="button"
+                    className="attachBtn attachBtn--grad"
+                    onClick={() => setOpenRowId((prev) => (prev === k ? "" : k))}
+                    title="Attachments"
+                  >
+                    <span className="attachBtn__icon" aria-hidden="true">⬇</span>
+                  </button>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </td>
+            </tr>
+
+            {isOpen &&
+              pdfs.map((p, idx) => (
+                <tr key={`${k}-mpdf-${p.id || idx}`} className="border-b bg-slate-50/60">
+                  <td className="px-2 py-2" colSpan={5}>
+                    <a
+                      href={fileHref(p, getToken())}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2"
+                      title={p.name || `PDF ${idx + 1}`}
+                    >
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border bg-slate-50">📄</span>
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-semibold">PDF {idx + 1}</div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-[210px]">
+                          {p.name || "Attachment"}
+                        </div>
+                      </div>
+                      <span className="ml-auto text-[11px] font-bold text-slate-600 whitespace-nowrap">Open →</span>
+                    </a>
+                  </td>
+                </tr>
+              ))}
+          </>
+        );
+      })
+    )}
+  </tbody>
+</table>
         </div>
       </motion.div>
 
