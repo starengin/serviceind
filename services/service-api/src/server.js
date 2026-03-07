@@ -1877,50 +1877,122 @@ function moneyToNumber(s) {
   return 0;
 }
 
-function pickTotalAmount(lines) {
-  const joined = lines.join(" ");
+function pickTotalAmount(lines, type = "") {
+  const safeLines = (lines || []).map((x) => String(x || "").trim()).filter(Boolean);
 
-  // 1) Strong keywords (best reliability)
-  const KEYWORDS = [
-    "grand total",
-    "total invoice value",
-    "total amount",
-    "amount payable",
-    "net amount",
-    "invoice value",
-    "total",
-  ];
+  const getDecimals = (s) => {
+    return String(s || "").match(/\b\d[\d,]*\.\d{2}\b/g) || [];
+  };
 
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const l = String(lines[i] || "");
+  const toNum = (s) => Number(String(s || "").replace(/,/g, "")) || 0;
+
+  const pickLastDecimal = (s) => {
+    const arr = getDecimals(s);
+    if (!arr.length) return 0;
+    return toNum(arr[arr.length - 1]);
+  };
+
+  // 1) BEST PRIORITY: exact final total style lines
+  // Example: "Total 6,900.0 Kg ... 4,55,952.00"
+  for (let i = safeLines.length - 1; i >= 0; i--) {
+    const l = safeLines[i];
     const low = l.toLowerCase();
 
-    if (KEYWORDS.some((k) => low.includes(k))) {
-      const decs = l.match(/\b\d[\d,]*\.\d{2}\b/g);
-      if (decs?.length) return moneyToNumber(decs[decs.length - 1]);
+    if (/^total\b/.test(low) && !/tax amount|taxable|grand total of tax/i.test(low)) {
+      const amt = pickLastDecimal(l);
+      if (amt > 0) return amt;
     }
   }
 
-  // 2) If keyword lines fail, pick MAX decimal amount from whole doc
-  // (Invoices/Receipts normally have total as maximum)
-  const allDec = joined.match(/\b\d[\d,]*\.\d{2}\b/g) || [];
-  if (allDec.length) {
-    let max = 0;
-    for (const a of allDec) {
-      const n = Number(String(a).replace(/,/g, "")) || 0;
+  // 2) STRONG LABELS
+  const strongLabels = [
+    "grand total",
+    "invoice value",
+    "total invoice value",
+    "amount payable",
+    "net payable",
+    "net amount",
+    "voucher amount",
+    "receipt amount",
+    "payment amount",
+    "total amount",
+  ];
+
+  for (let i = safeLines.length - 1; i >= 0; i--) {
+    const l = safeLines[i];
+    const low = l.toLowerCase();
+
+    if (strongLabels.some((k) => low.includes(k))) {
+      const amt = pickLastDecimal(l);
+      if (amt > 0) return amt;
+    }
+  }
+
+  // 3) PURCHASE / SALE document pattern:
+  // take the first usable "Total ..." from bottom which usually carries final invoice total
+  if (type === "PURCHASE" || type === "SALE") {
+    for (let i = safeLines.length - 1; i >= 0; i--) {
+      const l = safeLines[i];
+      const low = l.toLowerCase();
+
+      if (
+        low.includes("total") &&
+        !low.includes("taxable") &&
+        !low.includes("tax amount") &&
+        !low.includes("cgst") &&
+        !low.includes("sgst") &&
+        !low.includes("igst")
+      ) {
+        const amt = pickLastDecimal(l);
+        if (amt > 0) return amt;
+      }
+    }
+  }
+
+  // 4) RECEIPT / PAYMENT exact account-side amount if available
+  if (type === "RECEIPT" || type === "PAYMENT") {
+    for (let i = 0; i < safeLines.length; i++) {
+      const l = safeLines[i];
+      const low = l.toLowerCase();
+
+      if (
+        low.startsWith("account") ||
+        low.includes("received from") ||
+        low.includes("paid to") ||
+        low.includes("payment advice")
+      ) {
+        const vals = getDecimals(l);
+        if (vals.length) return toNum(vals[vals.length - 1]);
+      }
+    }
+  }
+
+  // 5) LAST SAFE FALLBACK:
+  // choose the biggest decimal from lower half of document,
+  // but ignore tax-table totals when possible
+  const candidateLines = safeLines.slice(Math.floor(safeLines.length / 2));
+
+  let max = 0;
+  for (const l of candidateLines) {
+    const low = l.toLowerCase();
+
+    if (
+      low.includes("tax amount") ||
+      low.includes("cgst") ||
+      low.includes("sgst") ||
+      low.includes("igst")
+    ) {
+      continue;
+    }
+
+    const vals = getDecimals(l);
+    for (const v of vals) {
+      const n = toNum(v);
       if (n > max) max = n;
     }
-    return max;
   }
 
-  // 3) Last resort integer numbers (avoid long bank refs by limiting length)
-  const allInt = joined.match(/\b\d[\d,]*\b/g) || [];
-  const ints = allInt
-    .map((x) => x.replace(/,/g, ""))
-    .filter((x) => x.length >= 4 && x.length <= 9); // keep 1000..999999999
-  if (ints.length) return Number(ints[ints.length - 1]) || 0;
-
-  return 0;
+  return max;
 }
 function findInvoiceAndEway(lines) {
   const full = lines.join(" ");
@@ -2146,40 +2218,126 @@ function receiptCodeFromFilename(originalName) {
 }
 
 function pickDate(type, lines, compact, originalName) {
-  // ✅ RECEIPT/PAYMENT often: "No. : 2 Dated : 2-Mar-26"
-  const mNoDated = compact.match(/\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i);
-  if (mNoDated?.[1]) {
-    const iso = parseDateLooseAny(mNoDated[1]);
-    if (iso) return iso;
-  }
+  const text = String(compact || "");
+  const textLower = text.toLowerCase();
 
-  // ✅ EXTRA fallback: scan lines for first date token (Receipt bank line also has date)
-  for (const ln of lines) {
-    const m = String(ln).match(/\b(\d{1,2}-[A-Za-z]{3}-\d{2,4}|\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/);
-    if (m?.[1]) {
-      const iso = parseDateLooseAny(m[1]);
-      if (iso) return iso;
+  // helper: parse and return ISO
+  const toIso = (raw) => {
+    const iso = parseDateLooseAny(raw || "");
+    return iso || "";
+  };
+
+  // helper: exact label based match from full compact text
+  const findByLabel = (...patterns) => {
+    for (const re of patterns) {
+      const m = text.match(re);
+      if (m?.[1]) {
+        const iso = toIso(m[1]);
+        if (iso) return iso;
+      }
     }
+    return "";
+  };
+
+  // helper: find date in nearby lines after a heading/label
+  const findNearLine = (labelRegex, maxAhead = 5) => {
+    for (let i = 0; i < lines.length; i++) {
+      const line = String(lines[i] || "").trim();
+
+      if (labelRegex.test(line)) {
+        // same line
+        const same = line.match(/(\d{1,2}-[A-Za-z]{3}-\d{2,4}|\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
+        if (same?.[1]) {
+          const iso = toIso(same[1]);
+          if (iso) return iso;
+        }
+
+        // next few lines
+        for (let j = i + 1; j < Math.min(i + 1 + maxAhead, lines.length); j++) {
+          const next = String(lines[j] || "").trim();
+          const m = next.match(/(\d{1,2}-[A-Za-z]{3}-\d{2,4}|\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
+          if (m?.[1]) {
+            const iso = toIso(m[1]);
+            if (iso) return iso;
+          }
+        }
+      }
+    }
+    return "";
+  };
+
+  // =========================
+  // TYPE-WISE PRIORITY
+  // =========================
+
+  if (type === "PAYMENT") {
+    // Payment Advice me voucher date ke liye header Date ko priority do
+    // ignore Bill Date / Dt in payment details
+    return (
+      findByLabel(
+        /\bPayment Advice\b[\s\S]{0,300}?\bDate\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+        /\bPayment Advice\b[\s\S]{0,300}?\bDate\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i,
+        /\bDate\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+        /\bDate\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i
+      ) ||
+      findNearLine(/^Date\s*:?$/i) ||
+      ""
+    );
   }
-if (type === "PAYMENT") {
-  // Payment Advice me usually "Date : dd-mm-yyyy" / or Dated
-  const mPay =
-    compact.match(/\bDate\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i)?.[1] ||
-    compact.match(/\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i)?.[1] ||
-    "";
 
-  return mPay ? (parseDateLooseAny(mPay) || "") : "";
-}
+  if (type === "RECEIPT") {
+    return (
+      findByLabel(
+        /\bReceipt Voucher\b[\s\S]{0,200}?\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+        /\bReceipt Voucher\b[\s\S]{0,200}?\bDated\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i,
+        /\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i
+      ) ||
+      findNearLine(/^Dated\s*:?$/i) ||
+      ""
+    );
+  }
 
-  // Dated ... (works for Sale/Purchase/Notes/Receipt) :contentReference[oaicite:13]{index=13} :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15} :contentReference[oaicite:16]{index=16} :contentReference[oaicite:17]{index=17}
-  const m = compact.match(/\bDated\s*:?\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4}|[0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i);
-  if (m?.[1]) return parseDateLooseAny(m[1]) || "";
+  if (type === "PURCHASE_RETURN" || type === "SALES_RETURN") {
+    // Debit/Credit note me Dated line priority
+    return (
+      findByLabel(
+        /\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+        /\bDated\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i
+      ) ||
+      findNearLine(/^Dated\s*:?$/i, 6) ||
+      ""
+    );
+  }
 
-  // Receipt Voucher: "... Dated : 2-May-25" sometimes in one line
-  const m2 = compact.match(/\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})/i);
-  if (m2?.[1]) return parseDateLooseAny(m2[1]) || "";
+  if (type === "SALE" || type === "PURCHASE") {
+    return (
+      findByLabel(
+        /\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+        /\bDated\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i,
+        /\bInvoice Date\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+        /\bInvoice Date\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i
+      ) ||
+      findNearLine(/^Dated\s*:?$/i, 6) ||
+      findNearLine(/^Invoice Date\s*:?$/i, 4) ||
+      ""
+    );
+  }
 
-  return "";
+  // =========================
+  // GENERIC FALLBACK (LAST)
+  // =========================
+
+  return (
+    findByLabel(
+      /\bDated\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+      /\bDated\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i,
+      /\bDate\s*:\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\b/i,
+      /\bDate\s*:\s*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})\b/i
+    ) ||
+    findNearLine(/^Dated\s*:?$/i, 6) ||
+    findNearLine(/^Date\s*:?$/i, 4) ||
+    ""
+  );
 }
 
 function stripTrailingAmount(s) {
@@ -2261,9 +2419,13 @@ function extractFromPdfSmart(parsedText, originalName) {
   const voucherNo = pickVoucherNo(type, lines, compact, originalName);
   const date = pickDate(type, lines, compact, originalName);
 
-  let amount = 0;
-  if (type === "RECEIPT") amount = pickReceiptAmount(lines) || pickTotalAmount(lines);
-  else amount = pickTotalAmount(lines);
+let amount = 0;
+
+if (type === "RECEIPT") {
+  amount = pickReceiptAmount(lines) || pickTotalAmount(lines, type);
+} else {
+  amount = pickTotalAmount(lines, type);
+}
 
   const { eWayBillNo } =
     type === "SALE" ? findInvoiceAndEway(lines) : { eWayBillNo: "" };
