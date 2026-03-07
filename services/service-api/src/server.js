@@ -59,7 +59,7 @@ const BRAND_PHONE = process.env.BRAND_PHONE || "+91-9702485922";
 const BRAND_WEBSITE = process.env.BRAND_WEBSITE || "https://www.serviceind.co.in";
 const BRAND_PORTAL = process.env.LOGIN_URL || "https://portal.serviceind.co.in";
 const BRAND_LOGO_URL =
-  process.env.MAIL_LOGO_URL || "https://www.serviceind.co.in/brand/logo.jpg";
+  process.env.MAIL_LOGO_URL || "https://www.serviceind.co.in/brand/logo.jpeg";
 
 const RESEND_FROM = process.env.RESEND_FROM || "noreply@mail.serviceind.co.in";
 const RESEND_FROM_FMT = `${BRAND_NAME} <${RESEND_FROM}>`;
@@ -173,7 +173,7 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="https://www.serviceind.co.in/brand/logo.jpg"
+                <img src="https://www.serviceind.co.in/brand/logo.jpeg"
                      alt="SERVICE INDIA"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
@@ -384,7 +384,7 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="https://www.serviceind.co.in/brand/logo.jpg"
+                <img src="https://www.serviceind.co.in/brand/logo.jpeg"
                      alt="SERVICE INDIA"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
@@ -588,7 +588,7 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="https://www.serviceind.co.in/brand/logo.jpg"
+                <img src="https://www.serviceind.co.in/brand/logo.jpeg"
                      alt="SERVICE INDIA"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>

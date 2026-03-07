@@ -33,7 +33,7 @@ const REPLY_TO = "corporate@serviceind.co.in";
 const BRAND_WEBSITE = "https://www.serviceind.co.in";
 const BRAND_PHONE = "+91-9702485922";
 const BRAND_WHATSAPP = "https://wa.me/919702485922";
-const LOGO_URL = `${BRAND_WEBSITE}/brand/logo.jpg`;
+const LOGO_URL = `https://www.serviceind.co.in/brand/logo.jpeg`;
 
 export default function EmailCenter() {
   const [loading, setLoading] = useState(true);
