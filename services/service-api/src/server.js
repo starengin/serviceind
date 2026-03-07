@@ -62,7 +62,8 @@ const BRAND_LOGO_URL =
   process.env.MAIL_LOGO_URL || "https://www.serviceind.co.in/brand/logo.jpeg";
 
 const RESEND_FROM = process.env.RESEND_FROM || "noreply@mail.serviceind.co.in";
-const RESEND_FROM_FMT = `${BRAND_NAME} <${RESEND_FROM}>`;
+const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || BRAND_NAME || "SERVICE INDIA";
+const RESEND_FROM_FMT = `"${RESEND_FROM_NAME}" <${RESEND_FROM}>`;
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -127,7 +128,7 @@ const smtp = nodemailer.createTransport({
 // });
 
 function welcomeEmailHTML({ name, email, password }) {
-const company = BRAND_NAME;
+const company = "SERVICE INDIA";
 const loginUrl = BRAND_PORTAL;
 const logoUrl = BRAND_LOGO_URL;
 
@@ -331,7 +332,7 @@ box-shadow:
 function contactInquiryEmailHTML({
   name, company, phone, email, city, workType, details, preferred, subject, page,
 }) {
-  const companyName = BRAND_NAME;
+  const companyName = "SERVICE INDIA";
 const logoUrl = BRAND_LOGO_URL;
 
   const safe = {
@@ -545,7 +546,7 @@ box-shadow:
 
 // ✅ Customer ack email (premium)
 function contactCustomerAckEmailHTML({ name, subject }) {
-const companyName = BRAND_NAME;
+const companyName = "SERVICE INDIA";
 const logoUrl = BRAND_LOGO_URL;
 
   const safeName = esc(name || "Customer");
