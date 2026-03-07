@@ -53,16 +53,23 @@ function buildWhatsAppMessage(payload) {
   const workLabel =
     WORK_TYPES.find((m) => m.key === payload.workType)?.label || payload.workType;
 
-  const company = payload.company ? payload.company : "your company";
-
-  return (
-    `Hello SERVICE INDIA Team, I am ${payload.name} from ${company}. ` +
-    `I would like to enquire regarding ${workLabel} at ${payload.city}. ` +
-    `Requirement details: ${payload.details}. ` +
-    `Kindly share feasibility, timeline and your best quotation at the earliest. ` +
-    `You may contact me on ${payload.phone}${payload.email ? ` or email me at ${payload.email}` : ""}. ` +
-    `Regards, ${company}`
-  );
+  return [
+    `*SERVICE INDIA – New Work Requirement*`,
+    ``,
+    `*Name:* ${payload.name}`,
+    `*Company:* ${payload.company || "-"}`,
+    `*Phone:* ${payload.phone}`,
+    `*Email:* ${payload.email || "-"}`,
+    `*City / Location:* ${payload.city}`,
+    `*Work Type:* ${workLabel}`,
+    `*Preferred Contact:* ${payload.preferred}`,
+    `*Subject:* ${payload.subject || DEFAULT_SUBJECT}`,
+    ``,
+    `*Requirement Details:*`,
+    `${payload.details}`,
+    ``,
+    `Kindly review the requirement and share feasibility, timeline, and quotation.`,
+  ].join("\n");
 }
 
 export default function Contact() {
@@ -70,6 +77,7 @@ export default function Contact() {
   const preSubject = loc?.state?.subject ? String(loc.state.subject) : "";
 
   const [sent, setSent] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
@@ -125,41 +133,15 @@ export default function Contact() {
 
       await sendRequirement(payload);
 
-      const to = "corporate@serviceind.co.in";
-      const subject =
-        `${payload.subject}` +
-        ` | ${payload.name}` +
-        (payload.city ? ` - ${payload.city}` : "");
-
-      const workLabel =
-        WORK_TYPES.find((m) => m.key === payload.workType)?.label || payload.workType;
-
-      const body =
-        `Hello SERVICE INDIA Team,\n\n` +
-        `Name: ${payload.name}\n` +
-        `Company: ${payload.company || "-"}\n` +
-        `Phone: ${payload.phone}\n` +
-        `Email: ${payload.email || "-"}\n` +
-        `City / Location: ${payload.city}\n` +
-        `Work Type: ${workLabel}\n` +
-        `Preferred Contact: ${payload.preferred}\n\n` +
-        `Requirement Details:\n${payload.details}\n\n` +
-        `Page: ${payload.page}\n`;
-
-      const mailtoUrl =
-        `mailto:${encodeURIComponent(to)}` +
-        `?subject=${encodeURIComponent(subject)}` +
-        `&body=${encodeURIComponent(body)}`;
+      setSent(true);
+      setRedirecting(true);
 
       const waText = buildWhatsAppMessage(payload);
       const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
 
-      setSent(true);
-
-      window.location.href = mailtoUrl;
       setTimeout(() => {
-        window.open(waUrl, "_blank", "noopener,noreferrer");
-      }, 300);
+        window.location.href = waUrl;
+      }, 1800);
     } catch (e2) {
       setErr(e2?.message || "Something went wrong");
     } finally {
@@ -187,15 +169,23 @@ export default function Contact() {
 
       {sent ? (
         <div className="contactThanks card">
-          <div className="thanksTop">
-            <div className="thanksTick">✉</div>
-            <div>
-              <div className="h2" style={{ marginBottom: 6 }}>
-                Your message draft is ready.
-              </div>
-              <div className="sub">
-                Please complete the process in your email or WhatsApp window to send the enquiry.
-                If it didn’t open, use one of the options below.
+          <div className="successWrap">
+            <div className="successIcon">
+              <div className="successPulse" />
+              <div className="successRing" />
+              <div className="successCheck">✓</div>
+            </div>
+
+            <div className="successText">
+              <div className="successTitle">Requirement submitted successfully</div>
+              <div className="successSub">
+                Your enquiry has been recorded and sent successfully.
+                {redirecting ? (
+                  <>
+                    <br />
+                    You are being redirected to <b>WhatsApp</b> for direct business communication.
+                  </>
+                ) : null}
               </div>
             </div>
           </div>
@@ -203,18 +193,17 @@ export default function Contact() {
           <div className="thanksActions">
             <a
               className="btn"
-              href="mailto:corporate@serviceind.co.in"
-            >
-              Open Email Again →
-            </a>
-
-            <a
-              className="btnGhost"
-              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildWhatsAppMessage(form))}`}
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+                buildWhatsAppMessage({
+                  ...form,
+                  phone: String(form.phone || "").replace(/\D/g, ""),
+                  subject: (form.subject || DEFAULT_SUBJECT).trim(),
+                })
+              )}`}
               target="_blank"
               rel="noreferrer"
             >
-              Open WhatsApp →
+              Open WhatsApp Now →
             </a>
 
             <a className="btnGhost" href="tel:+919702485922">
@@ -551,31 +540,98 @@ export default function Contact() {
         }
         .btnGhost:active{ transform: translateY(0) scale(.99); }
 
-        .contactThanks{ padding: 16px; }
-        .thanksTop{
-          display:flex;
-          gap:12px;
-          align-items:flex-start;
+        .contactThanks{
+          padding: 28px 20px;
         }
-        .thanksTick{
-          width: 42px;
-          height: 42px;
-          border-radius: 16px;
-          background: rgba(30,111,216,.12);
-          color: rgb(30,111,216);
+
+        .successWrap{
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          text-align:center;
+        }
+
+        .successIcon{
+          position: relative;
+          width: 110px;
+          height: 110px;
           display:flex;
           align-items:center;
           justify-content:center;
-          font-weight: 900;
-          font-size: 18px;
-          border: 1px solid rgba(30,111,216,.20);
-          flex: 0 0 auto;
+          margin-bottom: 18px;
         }
+
+        .successPulse{
+          position:absolute;
+          inset: 14px;
+          border-radius:999px;
+          background: radial-gradient(circle at center, rgba(34,197,94,.18), rgba(34,197,94,.06));
+          animation: pulseScale 1.8s ease-out infinite;
+        }
+
+        .successRing{
+          position:absolute;
+          inset: 0;
+          border-radius:999px;
+          border: 2px solid rgba(34,197,94,.22);
+          animation: ringPop 1.2s ease-out infinite;
+        }
+
+        .successCheck{
+          position:relative;
+          z-index:2;
+          width: 68px;
+          height: 68px;
+          border-radius:999px;
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          color: white;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size: 34px;
+          font-weight: 900;
+          box-shadow: 0 18px 40px rgba(34,197,94,.30);
+          animation: checkIn .45s ease-out;
+        }
+
+        .successTitle{
+          font-size: 24px;
+          line-height: 1.2;
+          font-weight: 900;
+          color:#0f172a;
+          margin-bottom: 8px;
+        }
+
+        .successSub{
+          max-width: 620px;
+          color:#475569;
+          line-height: 1.7;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
         .thanksActions{
           display:flex;
           gap:10px;
           flex-wrap:wrap;
-          margin-top: 14px;
+          margin-top: 22px;
+          justify-content:center;
+        }
+
+        @keyframes checkIn{
+          0%{ transform: scale(.55); opacity:0; }
+          70%{ transform: scale(1.08); opacity:1; }
+          100%{ transform: scale(1); opacity:1; }
+        }
+
+        @keyframes pulseScale{
+          0%{ transform: scale(.8); opacity:.75; }
+          100%{ transform: scale(1.28); opacity:0; }
+        }
+
+        @keyframes ringPop{
+          0%{ transform: scale(.75); opacity:.7; }
+          100%{ transform: scale(1.18); opacity:0; }
         }
       `}</style>
     </div>
