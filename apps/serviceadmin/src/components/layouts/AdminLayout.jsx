@@ -1,0 +1,301 @@
+import React, { useState } from "react";
+import { NavLink, Outlet } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { logout } from "../../lib/auth.js";
+
+export default function AdminLayout() {
+  const [open, setOpen] = useState(false);
+
+  function handleLogout() {
+    logout();
+
+    const PUBLIC_HOME =
+      import.meta.env.VITE_PUBLIC_HOME_URL ||
+      (import.meta.env.DEV
+        ? "http://localhost:5173"
+        : "https://www.serviceind.co.in");
+
+    window.location.replace(PUBLIC_HOME);
+  }
+
+  return (
+    <div className="adminShell">
+      <aside className="sidebar desktopOnly">
+        <Brand />
+        <Nav setOpen={setOpen} />
+        <button
+          className="btn btn-ghost"
+          onClick={handleLogout}
+          style={{ marginTop: "auto" }}
+        >
+          Logout
+        </button>
+      </aside>
+
+      <main className="main">
+        <div className="topbar">
+          <div className="topLeft">
+            <button
+              className="iconBtn mobileOnly"
+              onClick={() => setOpen(true)}
+              aria-label="Menu"
+            >
+              ☰
+            </button>
+            <div>
+              <div style={{ fontWeight: 900 }}>SERVICE INDIA</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                Admin Portal
+              </div>
+            </div>
+          </div>
+
+          <button className="btn btn-ghost desktopOnly" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+
+        <div className="container">
+          <Outlet />
+        </div>
+      </main>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              className="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.aside
+              className="sidebar drawer"
+              initial={{ x: -320 }}
+              animate={{ x: 0 }}
+              exit={{ x: -320 }}
+              transition={{ type: "spring", stiffness: 260, damping: 28 }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Brand />
+                <button
+                  className="iconBtn"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <Nav setOpen={setOpen} />
+
+              <button
+                className="btn btn-ghost"
+                onClick={handleLogout}
+                style={{ marginTop: "auto" }}
+              >
+                Logout
+              </button>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      <style>{css}</style>
+    </div>
+  );
+}
+
+function Brand() {
+  return (
+    <div className="brand">
+      <img
+        src="/brand/logo.jpeg"
+        alt="SERVICE INDIA"
+        className="brandLogo"
+      />
+      <div>
+        <div style={{ fontWeight: 900 }}>SERVICE INDIA</div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>Admin Portal</div>
+      </div>
+    </div>
+  );
+}
+
+function Nav({ setOpen }) {
+  return (
+    <nav className="nav">
+      <SideLink to="/" end label="Dashboard" onClick={() => setOpen(false)} />
+      <SideLink to="/customers" label="Customers" onClick={() => setOpen(false)} />
+      <SideLink to="/transactions" label="Transactions" onClick={() => setOpen(false)} />
+      <SideLink to="/ledger" label="Ledger" onClick={() => setOpen(false)} />
+      <SideLink to="/emails" label="Email Center" onClick={() => setOpen(false)} />
+    </nav>
+  );
+}
+
+function SideLink({ to, label, end, onClick }) {
+  const isNew = label === "Email Center";
+
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClick}
+      className={({ isActive }) => "sideLink" + (isActive ? " active" : "")}
+    >
+      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {label}
+        {isNew && (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              padding: "2px 8px",
+              borderRadius: 999,
+              color: "#fff",
+              border: "1px solid rgba(255,232,190,0.35)",
+              background:
+                "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
+              boxShadow: "0 10px 20px rgba(0,0,0,0.16)",
+            }}
+          >
+            NEW
+          </span>
+        )}
+      </span>
+    </NavLink>
+  );
+}
+
+const css = `
+.adminShell{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  background:
+    radial-gradient(900px 400px at 12% 0%, rgba(59,130,246,0.10), transparent 60%),
+    radial-gradient(760px 380px at 100% 12%, rgba(245,158,11,0.10), transparent 55%),
+    radial-gradient(880px 420px at 80% 100%, rgba(14,165,233,0.08), transparent 60%),
+    linear-gradient(145deg, #f8fbff, #eef4fb, #ffffff);
+}
+
+.sidebar{
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(12px);
+  border-right:1px solid var(--line);
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.brand{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  padding:6px;
+}
+
+.brandLogo{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  object-fit:cover;
+  background:#fff;
+  box-shadow: 0 10px 20px rgba(2,6,23,0.12);
+}
+
+.nav{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:4px;
+}
+
+.sideLink{
+  text-decoration:none;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:#fff;
+  font-weight:800;
+  font-size:14px;
+  color:#0f172a;
+  transition: all .18s ease;
+}
+
+.sideLink.active{
+  background: rgba(37,99,235,0.10);
+  border-color: rgba(37,99,235,0.28);
+  color:#1d4ed8;
+}
+
+.main{
+  display:flex;
+  flex-direction:column;
+  min-width: 0;
+}
+
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:12px 14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.topLeft{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.iconBtn{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.backdrop{
+  position:fixed;
+  inset:0;
+  background: rgba(2,6,23,0.45);
+  z-index:50;
+}
+
+.drawer{
+  position:fixed;
+  left:0;
+  top:0;
+  bottom:0;
+  width:280px;
+  z-index:60;
+  box-shadow: 20px 0 50px rgba(2,6,23,0.18);
+}
+
+.mobileOnly{ display:none; }
+.desktopOnly{ display:block; }
+
+@media (max-width: 920px){
+  .adminShell{ grid-template-columns: 1fr; }
+  .desktopOnly{ display:none; }
+  .mobileOnly{ display:inline-grid; }
+}
+`;
