@@ -4,7 +4,7 @@ import MobileMenu from "./MobileMenu";
 import Button from "../ui/Button";
 
 const PORTAL =
-  import.meta.env.VITE_CUSTOMER_PORTAL_URL || "https://portal.stareng.co.in";
+  import.meta.env.VITE_CUSTOMER_PORTAL_URL || "https://portal.serviceind.co.in";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
