@@ -173,8 +173,8 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="${logoUrl}"
-                     alt="${company}"
+                <img src="https://www.serviceind.co.in/brand/logo.jpg"
+                     alt="SERVICE INDIA"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
               <td valign="middle" style="padding-left:12px;">
@@ -186,7 +186,7 @@ box-shadow:
                   font-weight:bold;
                   text-shadow:0 3px 10px rgba(0,0,0,0.35);
                 ">
-                  ${company}
+                  SERVICE INDIA
                 </h1>
                 <p style="
                   margin:6px 0 0 0;
@@ -384,8 +384,8 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="${logoUrl}"
-                     alt="${companyName}"
+                <img src="https://www.serviceind.co.in/brand/logo.jpg"
+                     alt="SERVICE INDIA"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
               <td valign="middle" style="padding-left:12px;">
@@ -397,7 +397,7 @@ box-shadow:
                   font-weight:bold;
                   text-shadow:0 3px 10px rgba(0,0,0,0.35);
                 ">
-                  ${companyName}
+                  SERVICE INDIA
                 </h1>
                 <p style="
                   margin:6px 0 0 0;
@@ -588,8 +588,8 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="${logoUrl}"
-                     alt="${companyName}"
+                <img src="https://www.serviceind.co.in/brand/logo.jpg"
+                     alt="SERVICE INDIA"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
               <td valign="middle" style="padding-left:12px;">
@@ -601,7 +601,7 @@ box-shadow:
                   font-weight:bold;
                   text-shadow:0 3px 10px rgba(0,0,0,0.35);
                 ">
-                  ${companyName}
+                  SERVICE INDIA
                 </h1>
                 <p style="
                   margin:6px 0 0 0;
