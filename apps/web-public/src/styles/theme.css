@@ -1,20 +1,21 @@
 :root{
-  --bg0:#f6f7fb;
+  --bg0:#f6f8fc;
   --bg1:#ffffff;
   --txt:#0f172a;
   --muted:#64748b;
   --line:rgba(15,23,42,.10);
 
-  --primary:#2b67f6;
-  --primary2:#7c3aed;
+  --primary:#1f7fe8;
+  --primaryMid:#19b5ff;
+  --primary2:#d9a12a;
   --radius:16px;
 
   --shadow: 0 10px 30px rgba(2,6,23,.08);
   --shadow2: 0 6px 18px rgba(2,6,23,.06);
 
   --gradSoft:
-    radial-gradient(900px 420px at 15% 0%, rgba(255,0,102,.10), transparent 60%),
-    radial-gradient(760px 380px at 95% 18%, rgba(0,102,255,.10), transparent 55%),
-    radial-gradient(920px 520px at 80% 110%, rgba(255,170,0,.10), transparent 60%),
-    linear-gradient(180deg, #ffffff 0%, #f6f7fb 60%, #ffffff 100%);
+    radial-gradient(900px 420px at 12% 8%, rgba(31,127,232,.11), transparent 60%),
+    radial-gradient(760px 380px at 92% 14%, rgba(25,181,255,.10), transparent 55%),
+    radial-gradient(920px 520px at 84% 108%, rgba(217,161,42,.12), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #f6f8fc 60%, #fffaf1 100%);
 }

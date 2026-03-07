@@ -1,18 +1,19 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
-import { getToken, getLoginAt, clearToken } from "../../lib/auth";
+import { Navigate, useLocation } from "react-router-dom";
+import { getToken, getLoginAt, clearToken } from "../../lib/auth.js";
 
 export default function ProtectedRoute({ children }) {
+  const location = useLocation();
   const token = getToken();
   const loginAt = getLoginAt();
 
-  // ✅ New tab/window => sessionStorage empty => token not found => goes login
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
 
-  // ✅ extra safety: token exists but marker missing => force logout
   if (!loginAt) {
     clearToken();
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   return children;

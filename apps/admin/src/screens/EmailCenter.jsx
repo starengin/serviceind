@@ -1,8 +1,3 @@
-// EmailCenter.jsx (FULL REPLACE) — normal email + premium theme (Arial, logo, colours)
-// ✅ Keeps your existing fields + attachments logic
-// ✅ Only changes the EMAIL HTML preview template to match your Payment Advice theme
-// ✅ Removes “Regarding…” vibe; makes subject/body feel like normal professional email
-
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
@@ -33,23 +28,22 @@ function bytes(n) {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
-const REPLY_TO = "corporate@stareng.co.in";
-
-// ✅ same logo as your template example
-const LOGO_URL =
-  "https://docs5.odoo.com/documents/content/Qwj8oh-9TxiwpBBdUzte_gof4?download=0";
+const BRAND_NAME = "SERVICE INDIA";
+const REPLY_TO = "corporate@serviceind.co.in";
+const BRAND_WEBSITE = "https://www.serviceind.co.in";
+const BRAND_PHONE = "+91-9702485922";
+const BRAND_WHATSAPP = "https://wa.me/919702485922";
+const LOGO_URL = `${BRAND_WEBSITE}/brand/logo.jpg`;
 
 export default function EmailCenter() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState([]);
   const [err, setErr] = useState("");
 
-  // selection
   const [selectedLead, setSelectedLead] = useState(null);
 
-  // compose
   const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("STAR Engineering – Notification");
+  const [subject, setSubject] = useState(`${BRAND_NAME} – Notification`);
   const [message, setMessage] = useState("");
   const [mainPdf, setMainPdf] = useState(null);
   const [extraFiles, setExtraFiles] = useState([]);
@@ -77,7 +71,7 @@ export default function EmailCenter() {
   function clearComposer() {
     setSelectedLead(null);
     setTo("");
-    setSubject("STAR Engineering – Notification");
+    setSubject(`${BRAND_NAME} – Notification`);
     setMessage("");
     setMainPdf(null);
     setExtraFiles([]);
@@ -95,23 +89,22 @@ export default function EmailCenter() {
     const leadSubject = (l?.subject || "Enquiry").trim();
 
     setTo(leadEmail);
-    setSubject(`STAR Engineering – ${leadSubject}`);
+    setSubject(`${BRAND_NAME} – ${leadSubject}`);
 
-    // ✅ normal professional email copy (no “regarding”)
     const baseMsg = [
       `Dear ${leadName},`,
       ``,
-      `Thank you for reaching out to STAR Engineering.`,
-      `We have received your requirement and our team will assist you shortly.`,
+      `Thank you for contacting ${BRAND_NAME}.`,
+      `We have received your requirement and our team will get back to you shortly.`,
       ``,
       `Please find the relevant quotation / attachment with this email.`,
       ``,
-      `If you have any questions, simply reply to this email or contact us at ${REPLY_TO}.`,
+      `If you need any clarification, simply reply to this email or contact us at ${REPLY_TO}.`,
       ``,
       `Warm Regards,`,
-      `STAR Engineering`,
+      `${BRAND_NAME}`,
       `${REPLY_TO}`,
-      `www.stareng.co.in`,
+      `${BRAND_WEBSITE.replace("https://", "")}`,
     ].join("\n");
 
     setMessage(baseMsg);
@@ -120,10 +113,7 @@ export default function EmailCenter() {
   const previewHtml = useMemo(() => {
     const lead = selectedLead;
 
-    const titleLine = lead
-      ? escHtml(lead.subject || "Enquiry")
-      : "Notification";
-
+    const titleLine = lead ? escHtml(lead.subject || "Enquiry") : "Notification";
     const introLine = lead
       ? `We received your requirement and will assist you shortly.`
       : `Please find the message below.`;
@@ -142,7 +132,7 @@ export default function EmailCenter() {
       ">
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
           <tbody>
-            <tr style="background:linear-gradient(90deg,#ffeeee,#ffffff);">
+            <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Name</b></td>
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.name || "-")}</td>
             </tr>
@@ -150,21 +140,21 @@ export default function EmailCenter() {
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Email</b></td>
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.email || "-")}</td>
             </tr>
-            <tr style="background:linear-gradient(90deg,#ffeeee,#ffffff);">
+            <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Phone</b></td>
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.phone || "-")}</td>
             </tr>
-            <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
+            <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>City</b></td>
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.city || "-")}</td>
             </tr>
-            <tr style="background:linear-gradient(90deg,#ffeeee,#ffffff);">
+            <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Material</b></td>
               <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.material || "ALL")}</td>
             </tr>
-            <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Details</b></td>
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;line-height:1.7;">
+            <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
+              <td style="padding:12px 14px;"><b>Details</b></td>
+              <td style="padding:12px 14px;line-height:1.7;">
                 ${escHtml(lead.details || "-").replace(/\n/g, "<br/>")}
               </td>
             </tr>
@@ -174,7 +164,6 @@ export default function EmailCenter() {
       `
       : "";
 
-    // ✅ Premium theme based on your Payment Advice template, but with generic subject/body
     return `
 <table align="center" width="100%" cellpadding="0" cellspacing="0"
 style="
@@ -183,47 +172,29 @@ margin:30px auto;
 border-radius:16px;
 overflow:hidden;
 font-family:Arial,Helvetica,sans-serif;
-
-/* 🌈 BODY: ROYAL COLORFUL LUXURY MULTI-LAYER BACKGROUND */
 background:
-radial-gradient(900px 420px at 15% 0%, rgba(255,0,102,0.16), transparent 60%),
-radial-gradient(760px 380px at 95% 18%, rgba(0,102,255,0.15), transparent 55%),
-radial-gradient(920px 520px at 80% 110%, rgba(255,170,0,0.16), transparent 60%),
-radial-gradient(820px 420px at 52% 105%, rgba(163,0,255,0.12), transparent 65%),
-linear-gradient(145deg,#fbfcff,#f2f6ff,#ffffff);
-
-/* PREMIUM SHADOW */
+radial-gradient(900px 420px at 15% 0%, rgba(0,123,255,0.16), transparent 60%),
+radial-gradient(700px 360px at 95% 18%, rgba(255,140,0,0.14), transparent 55%),
+radial-gradient(900px 480px at 80% 110%, rgba(0,170,255,0.14), transparent 60%),
+linear-gradient(145deg,#f7f8fb,#eef1f6,#ffffff);
 box-shadow:
-0 24px 60px rgba(17,24,39,0.24),
-0 10px 24px rgba(17,24,39,0.12);
+0 18px 40px rgba(17,24,39,0.18),
+0 6px 14px rgba(17,24,39,0.10);
 ">
   <tbody>
-
-    <!-- HEADER -->
     <tr>
       <td style="
-        background:
-          radial-gradient(900px 260px at 18% 0%, rgba(255,220,160,0.18), transparent 55%),
-          linear-gradient(135deg,#3b0000,#6a0000,#9a0000,#a100ff,#ff0066,#ff7a00);
+        background:linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00);
         padding:22px 24px;
         color:#ffffff;
         position:relative;
-        box-shadow:
-          inset 0 -10px 20px rgba(0,0,0,0.30),
-          0 10px 22px rgba(0,0,0,0.18);
+        box-shadow: inset 0 -6px 14px rgba(0,0,0,0.22);
       ">
-
-        <!-- premium shine strip -->
         <div style="
           height:4px;
-          background:linear-gradient(90deg,
-            rgba(255,255,255,0.06),
-            rgba(255,232,190,0.58),
-            rgba(255,255,255,0.10)
-          );
+          background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.40),rgba(255,255,255,0.06));
           border-radius:999px;
           margin-bottom:14px;
-          box-shadow:0 2px 10px rgba(0,0,0,0.25);
         "></div>
 
         <table width="100%" cellpadding="0" cellspacing="0">
@@ -231,14 +202,8 @@ box-shadow:
             <tr>
               <td width="100" valign="middle">
                 <img src="${LOGO_URL}"
-                     alt="STAR ENGINEERING"
-                     style="
-                       max-width:80px;
-                       display:block;
-                       border-radius:10px;
-                       box-shadow:0 14px 26px rgba(0,0,0,0.35);
-                       border:1px solid rgba(255,232,190,0.45);
-                     ">
+                     alt="${BRAND_NAME}"
+                     style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
               <td valign="middle" style="padding-left:12px;">
                 <h1 style="
@@ -247,16 +212,16 @@ box-shadow:
                   letter-spacing:1px;
                   color:#ffffff;
                   font-weight:bold;
-                  text-shadow:0 4px 14px rgba(0,0,0,0.50);
+                  text-shadow:0 3px 10px rgba(0,0,0,0.35);
                 ">
-                  STAR ENGINEERING
+                  ${BRAND_NAME}
                 </h1>
                 <p style="
                   margin:6px 0 0 0;
                   font-size:14px;
-                  color:#fff1f7;
+                  color:#eef8ff;
                   font-weight:bold;
-                  text-shadow:0 3px 12px rgba(0,0,0,0.45);
+                  text-shadow:0 2px 8px rgba(0,0,0,0.30);
                 ">
                   ${titleLine}
                 </p>
@@ -266,7 +231,7 @@ box-shadow:
                   font-size:12px;
                   color:rgba(255,255,255,0.92);
                   line-height:1.6;
-                  text-shadow:0 3px 12px rgba(0,0,0,0.35);
+                  text-shadow:0 2px 8px rgba(0,0,0,0.30);
                 ">
                   ${escHtml(introLine)}<br/>
                   Reply-To: <b>${escHtml(REPLY_TO)}</b>
@@ -275,86 +240,62 @@ box-shadow:
             </tr>
           </tbody>
         </table>
-
       </td>
     </tr>
 
-    <!-- BODY -->
     <tr>
       <td style="padding:0;">
-        <div style="
-          padding:22px 20px 18px 20px;
-          color:#111827;
-          background:
-            radial-gradient(900px 260px at 12% 0%, rgba(255,170,0,0.12), transparent 60%),
-            radial-gradient(820px 240px at 88% 0%, rgba(163,0,255,0.10), transparent 60%),
-            linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82));
-          border-top:1px solid rgba(255,232,190,0.35);
-          font-family:Arial,Helvetica,sans-serif;
-        ">
-
+        <div style="padding:22px 20px 18px 20px; color:#111827;">
           <div style="font-size:14px;line-height:1.85;color:#1f2937;">
             ${bodyText || "—"}
           </div>
 
           ${summaryBlock}
 
-<br>
-
-          <!-- SUPPORT BOX -->
           <div style="
             margin-top:18px;
             padding:16px;
             border-radius:12px;
             background:
-              radial-gradient(700px 180px at 15% 0%, rgba(255,0,102,0.12), transparent 55%),
-              radial-gradient(760px 200px at 95% 0%, rgba(0,102,255,0.10), transparent 60%),
-              linear-gradient(180deg,#ffffff,#fff7fb);
-            border:1px dashed rgba(255,170,0,0.70);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.78);
-            font-family:Arial,Helvetica,sans-serif;
+              radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.10), transparent 55%),
+              linear-gradient(180deg,#ffffff,#f2f8ff);
+            border:1px dashed rgba(11,94,215,0.55);
           ">
             <p style="font-size:14px;line-height:1.65;margin:0;color:#1f2937;">
               For any clarification, please reply to this email or contact us at
-              <a href="mailto:starengineering13@gmail.com"
-                 style="color:#a100ff;text-decoration:none;font-weight:bold;"
+              <a href="mailto:${escHtml(REPLY_TO)}"
+                 style="color:#0b5ed7;text-decoration:none;font-weight:bold;"
                  target="_blank">
-                starengineering13@gmail.com
+                ${escHtml(REPLY_TO)}
               </a>
             </p>
 
             <p style="font-size:14px;margin:16px 0 0 0;color:#1f2937;line-height:1.7;">
               Warm Regards,<br/>
-              <b>STAR ENGINEERING</b><br/>
-              📧 <a target="_blank" href="mailto:${escHtml(REPLY_TO)}" style="color:#a100ff;text-decoration:none;">
+              <b>${BRAND_NAME}</b><br/>
+              📧 <a target="_blank" href="mailto:${escHtml(REPLY_TO)}" style="color:#0b5ed7;text-decoration:none;">
                 ${escHtml(REPLY_TO)}
               </a><br/>
-              🌐 <a href="https://www.stareng.co.in" style="color:#a100ff;text-decoration:none;" target="_blank">
-                www.stareng.co.in
+              🌐 <a href="${BRAND_WEBSITE}" style="color:#0b5ed7;text-decoration:none;" target="_blank">
+                ${BRAND_WEBSITE.replace("https://", "")}
               </a>
             </p>
           </div>
-
         </div>
       </td>
     </tr>
 
-    <!-- FOOTER -->
     <tr>
       <td style="
-        background:
-          radial-gradient(900px 220px at 20% 0%, rgba(255,0,102,0.10), transparent 60%),
-          radial-gradient(900px 220px at 80% 0%, rgba(0,102,255,0.10), transparent 60%),
-          linear-gradient(180deg,#f4f4f6,#efeff2);
+        background:linear-gradient(180deg,#f4f4f6,#efeff2);
         padding:16px;
         text-align:center;
         font-size:12px;
         color:#6b7280;
         border-top:1px solid rgba(17,24,39,0.08);
-        font-family:Arial,Helvetica,sans-serif;
       ">
         <div style="font-weight:bold; color:#111827; margin-bottom:6px;">
-          This is a system-generated email. Please reply only to the Reply-To address mentioned above.
+          This is a system-generated email. Please reply to the email address mentioned above.
         </div>
 
         <div style="
@@ -362,26 +303,26 @@ box-shadow:
           width:160px;
           margin:10px auto 10px auto;
           border-radius:999px;
-          background:linear-gradient(90deg, rgba(161,0,255,0.25), rgba(255,122,0,0.35), rgba(0,102,255,0.25));
+          background:linear-gradient(90deg, rgba(11,61,145,0.25), rgba(255,140,0,0.35), rgba(0,163,255,0.25));
         "></div>
 
         <div style="line-height:1.7;">
           📧
           <a target="_blank" href="mailto:${escHtml(REPLY_TO)}"
-             style="color:#a100ff;text-decoration:none;font-weight:bold;">
+             style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
             ${escHtml(REPLY_TO)}
           </a><br/>
 
           📞
-          <a href="tel:+919702485922"
+          <a href="tel:${BRAND_PHONE.replace(/[^\d+]/g, "")}"
              style="color:#111827;text-decoration:none;font-weight:bold;">
-            Call Now: +91-9702485922
+            Call Now: ${BRAND_PHONE}
           </a><br/>
 
           💬
-          <a target="_blank" href="https://wa.me/917045276723"
+          <a target="_blank" href="${BRAND_WHATSAPP}"
              style="color:#111827;text-decoration:none;font-weight:bold;">
-            WhatsApp: +91-7045276723
+            WhatsApp Support
           </a>
         </div>
 
@@ -390,18 +331,17 @@ box-shadow:
           width:160px;
           margin:10px auto 10px auto;
           border-radius:999px;
-          background:linear-gradient(90deg, rgba(161,0,255,0.25), rgba(255,122,0,0.35), rgba(0,102,255,0.25));
+          background:linear-gradient(90deg, rgba(11,61,145,0.25), rgba(255,140,0,0.35), rgba(0,163,255,0.25));
         "></div>
 
         <div style="margin-top:6px; line-height:1.7;">
-          Terms &amp; Conditions:
-          <a href="https://www.stareng.co.in/terms" style="color:#6b7280; text-decoration:none;" target="_blank">
-            www.stareng.co.in/terms
+          Website:
+          <a href="${BRAND_WEBSITE}" style="color:#6b7280; text-decoration:none;" target="_blank">
+            ${BRAND_WEBSITE}
           </a>
         </div>
       </td>
     </tr>
-
   </tbody>
 </table>
     `;
@@ -427,7 +367,6 @@ box-shadow:
         html: previewHtml,
         mainPdf,
         extraFiles,
-        // NOTE: reply-to backend me set hoga (Resend)
       });
 
       setOkMsg(`✅ Email sent successfully. Attachments: ${res?.attached || 0}`);
@@ -441,7 +380,7 @@ box-shadow:
   }
 
   return (
-    <div style={{ padding: 12 }}>
+    <div style={{ padding: 12, fontFamily: "Arial, Helvetica, sans-serif" }}>
       <div
         style={{
           display: "flex",
@@ -449,6 +388,7 @@ box-shadow:
           justifyContent: "space-between",
           gap: 10,
           marginBottom: 10,
+          flexWrap: "wrap",
         }}
       >
         <div>
@@ -477,7 +417,6 @@ box-shadow:
           alignItems: "start",
         }}
       >
-        {/* LEFT */}
         <div className="card" style={{ padding: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ fontWeight: 1000 }}>Leads</div>
@@ -492,14 +431,15 @@ box-shadow:
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
               {leads.map((l) => {
                 const active = selectedLead?.id === l.id;
+
                 return (
                   <button
                     key={l.id}
                     className="sideLink"
                     style={{
                       textAlign: "left",
-                      border: active ? "1px solid rgba(124,58,237,0.45)" : "1px solid var(--line)",
-                      background: active ? "rgba(124,58,237,0.06)" : "transparent",
+                      border: active ? "1px solid rgba(11,94,215,0.35)" : "1px solid var(--line)",
+                      background: active ? "rgba(11,94,215,0.06)" : "transparent",
                       borderRadius: 14,
                       padding: 10,
                     }}
@@ -508,11 +448,15 @@ box-shadow:
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ fontWeight: 1000 }}>{l.name || "Lead"}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDateTime(l.createdAt) || ""}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        {fmtDateTime(l.createdAt) || ""}
+                      </div>
                     </div>
+
                     <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                       {l.email || "-"} • {l.city || "-"}
                     </div>
+
                     <div style={{ fontSize: 12, marginTop: 6, color: "#0f172a" }}>
                       {l.subject || "Enquiry"}
                     </div>
@@ -526,13 +470,12 @@ box-shadow:
           {okMsg ? <div style={{ marginTop: 10, color: "#166534", fontWeight: 1000 }}>{okMsg}</div> : null}
         </div>
 
-        {/* RIGHT */}
         <div className="card" style={{ padding: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 1000 }}>Compose & Send</div>
               <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                Attach PDFs and send directly to customer.
+                Attach PDFs and send directly to the customer.
               </div>
             </div>
           </div>
@@ -540,7 +483,12 @@ box-shadow:
           <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
             <label>
               <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>To</div>
-              <input className="input" value={to} onChange={(e) => setTo(e.target.value)} placeholder="customer@email.com" />
+              <input
+                className="input"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="customer@email.com"
+              />
             </label>
 
             <label>
@@ -550,16 +498,29 @@ box-shadow:
 
             <label>
               <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>Message</div>
-              <textarea className="input" rows={8} value={message} onChange={(e) => setMessage(e.target.value)} />
+              <textarea
+                className="input"
+                rows={8}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
             </label>
 
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>Main PDF (optional)</div>
-                <input type="file" accept="application/pdf" onChange={(e) => setMainPdf(e.target.files?.[0] || null)} />
+                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>
+                  Main PDF (optional)
+                </div>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setMainPdf(e.target.files?.[0] || null)}
+                />
+
                 {mainPdf ? (
                   <div style={{ fontSize: 12, color: "#0f172a" }}>
-                    ✅ <b>{mainPdf.name}</b> <span style={{ color: "var(--muted)" }}>({bytes(mainPdf.size)})</span>
+                    ✅ <b>{mainPdf.name}</b>{" "}
+                    <span style={{ color: "var(--muted)" }}>({bytes(mainPdf.size)})</span>
                   </div>
                 ) : (
                   <div style={{ fontSize: 12, color: "var(--muted)" }}>No main PDF selected</div>
@@ -567,7 +528,9 @@ box-shadow:
               </div>
 
               <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>Extra Files (optional)</div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>
+                  Extra Files (optional)
+                </div>
                 <input type="file" multiple onChange={(e) => setExtraFiles(Array.from(e.target.files || []))} />
 
                 {extraFiles?.length ? (
@@ -612,7 +575,7 @@ box-shadow:
               </button>
 
               <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                Customer will reply to: <b>{REPLY_TO}</b>
+                Customer replies will come to: <b>{REPLY_TO}</b>
               </div>
             </div>
 
@@ -633,7 +596,6 @@ box-shadow:
         </div>
       </div>
 
-      {/* responsive tweak */}
       <style>{`
         @media (max-width: 980px){
           .emailCenterGrid { grid-template-columns: 1fr !important; }

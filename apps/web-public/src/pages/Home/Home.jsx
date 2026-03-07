@@ -59,7 +59,6 @@ export default function Home() {
 
   return (
     <>
-      {/* ✅ FULL-WIDTH HERO (no card) */}
       <section ref={heroRef} className="heroFull" style={blobStyle}>
         <div className="heroBg" aria-hidden="true">
           <div className="heroBlob b1" />
@@ -73,99 +72,96 @@ export default function Home() {
             <div className="heroLeft" data-reveal>
               <div className="heroBadge">
                 <span className="dot" />
-                Trusted Engineering Materials Supplier
+                Fabrication • Installation • Industrial Work
               </div>
 
               <h1 className="heroTitle">
-                Premium <span className="gradText">Steel • Iron • Metals</span>
+                Reliable <span className="gradText">Fabrication • Installation • Repair</span>
                 <br />
-                Supply for Industrial Projects
+                Support for Industrial & Commercial Projects
               </h1>
 
               <p className="heroLead">
-                STAR Engineering supplies engineering materials and industrial products with
-                consistent quality, reliable sourcing, and professional documentation — built for
-                contractors, manufacturers, and large procurement teams.
+                SERVICE INDIA delivers fabrication and industrial job work solutions
+                for sheds, structures, gates, railings, roofing, platforms, repairs
+                and custom site execution. We focus on proper workmanship, practical
+                planning and dependable support for project timelines.
               </p>
 
               <div className="heroCtas">
-                <Button onClick={() => nav("/shop")}>Explore Products</Button>
+                <Button onClick={() => nav("/work")}>Explore Work</Button>
                 <button className="btnGhost heroGhost" onClick={() => nav("/contact")}>
-                  Request a Quote
+                  Send Requirement
                 </button>
               </div>
             </div>
 
-            {/* right panel is OK (aap chahe to baad me full-width me bhi merge kar denge) */}
             <div className="heroRight" data-reveal>
               <div className="heroPanel">
                 <div className="panelHead">
-                  <div className="panelTitle">What we supply</div>
-                  <div className="panelSub">Industrial-grade categories</div>
+                  <div className="panelTitle">What we do</div>
+                  <div className="panelSub">Industrial fabrication & site execution</div>
                 </div>
 
                 <div className="pillGrid">
-                  <div className="pill">I Section & C Section</div>
-                  <div className="pill">L Section & T Section</div>
-                  <div className="pill">M.S. / S.S. / G.I. Items</div>
-                  <div className="pill">TMT / Rods / Bars</div>
-                  <div className="pill">Sheets & Metal Plates</div>
-                  <div className="pill">Fabrication Materials</div>
-                  <div className="pill">All Construction Materials</div>
-                  <div className="pill">Custom Supply (PO)</div>
+                  <div className="pill">Structural Fabrication</div>
+                  <div className="pill">Shed & Roofing Work</div>
+                  <div className="pill">Gate, Grill & Railing</div>
+                  <div className="pill">Pipe Support & Utility Work</div>
+                  <div className="pill">Platform, Ladder & Access Work</div>
+                  <div className="pill">Repair & Retrofit Jobs</div>
+                  <div className="pill">Installation & Erection</div>
+                  <div className="pill">Custom Job Work</div>
                 </div>
 
                 <div className="panelFoot">
-                  <div className="muted">Need a specific grade/spec?</div>
+                  <div className="muted">Need drawing-based or site-based work?</div>
                   <button className="btnLink" onClick={() => nav("/contact")}>
-                    Talk to Sales →
+                    Talk to Us →
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ✅ trust strip ko hero ke just niche rakh diya (container me) */}
           <section className="trustStrip trustStrip--underHero" data-reveal>
             <div className="trustItem">
-              <div className="trustBig">Corporate</div>
-              <div className="muted">Professional dealing</div>
+              <div className="trustBig">Fabrication</div>
+              <div className="muted">Workshop & site support</div>
             </div>
             <div className="trustItem">
-              <div className="trustBig">Procurement</div>
-              <div className="muted">Purchase orders & billing</div>
+              <div className="trustBig">Execution</div>
+              <div className="muted">Installation & erection jobs</div>
             </div>
             <div className="trustItem">
-              <div className="trustBig">Quality</div>
-              <div className="muted">Consistent supply chain</div>
+              <div className="trustBig">Repair</div>
+              <div className="muted">Modification & maintenance</div>
             </div>
             <div className="trustItem">
-              <div className="trustBig">Support</div>
-              <div className="muted">Clear communication</div>
+              <div className="trustBig">Coordination</div>
+              <div className="muted">Clear practical communication</div>
             </div>
           </section>
         </div>
       </section>
 
-      {/* बाकी content normal container में */}
       <div className="container">
-        {/* INDUSTRIES */}
         <section className="section">
           <div className="sectionHead" data-reveal>
-            <h2 className="h2">Industries We Serve</h2>
+            <h2 className="h2">Where our work fits best</h2>
             <p className="sub">
-              We support businesses that require timely, dependable materials for critical timelines.
+              We support clients who need dependable fabrication and industrial execution for active jobs and running operations.
             </p>
           </div>
 
           <div className="tiles">
             {[
-              { t: "Infrastructure & Construction", s: "Structural steel and project materials" },
-              { t: "Manufacturing & Fabrication", s: "MS/SS metals, pipes, and consumables" },
-              { t: "Mechanical & Maintenance", s: "Replacement parts and fast supply" },
-              { t: "Industrial Procurement", s: "PO based supply with documentation" },
-              { t: "Warehousing & Logistics", s: "Bulk packaging, dispatch coordination" },
-              { t: "Contractors & Vendors", s: "Regular supply, repeat orders" },
+              { t: "Factories & Workshops", s: "Fabrication, modification, machine supports and utility jobs" },
+              { t: "Warehouses & Industrial Sheds", s: "Roofing, cladding, extension and repair work" },
+              { t: "Commercial & Site Projects", s: "Staircase, railing, gates, grills and structural support work" },
+              { t: "Maintenance Teams", s: "Repair, retrofit and urgent correction jobs" },
+              { t: "Contractors & Project Teams", s: "Execution support for planned and ongoing work" },
+              { t: "Custom Requirement Clients", s: "Drawing-based, sample-based and site-specific fabrication" },
             ].map((x, i) => (
               <div className="tile" data-reveal key={i}>
                 <div className="tileTitle">{x.t}</div>
@@ -176,21 +172,36 @@ export default function Home() {
           </div>
         </section>
 
-        {/* PROCESS */}
         <section className="section">
           <div className="sectionHead" data-reveal>
-            <h2 className="h2">Simple, Reliable Supply Process</h2>
+            <h2 className="h2">Simple, practical work process</h2>
             <p className="sub">
-              Designed for corporate purchasing — quick quotes, clear specs, smooth delivery.
+              Built for fabrication, installation and industrial job execution with clear planning.
             </p>
           </div>
 
           <div className="steps">
             {[
-              { n: "01", t: "Share requirement", s: "Material type, size, grade, quantity, delivery location." },
-              { n: "02", t: "Quotation & confirmation", s: "Competitive rates, availability timeline, and terms." },
-              { n: "03", t: "Packaging & dispatch", s: "Proper handling with invoice / GST / challan." },
-              { n: "04", t: "Support & repeat supply", s: "Ongoing material support for project timelines." },
+              {
+                n: "01",
+                t: "Share requirement",
+                s: "Send drawing, dimensions, site photos, work type and expected timeline.",
+              },
+              {
+                n: "02",
+                t: "Review & quotation",
+                s: "We check scope, feasibility, execution method and provide commercial confirmation.",
+              },
+              {
+                n: "03",
+                t: "Fabrication / site planning",
+                s: "Material, manpower, measurements and job sequence are aligned before execution.",
+              },
+              {
+                n: "04",
+                t: "Execution & completion",
+                s: "Work is completed with coordination, updates and practical site support.",
+              },
             ].map((x, i) => (
               <div className="step" data-reveal key={i}>
                 <div className="stepNo">{x.n}</div>
@@ -202,21 +213,18 @@ export default function Home() {
           </div>
         </section>
 
-        {/* BIG CTA */}
         <section className="ctaBand" data-reveal>
           <div className="ctaLeft">
-            <h2 className="ctaTitle">Ready to source materials for your next project?</h2>
+            <h2 className="ctaTitle">Need fabrication or industrial work for your next job?</h2>
             <p className="ctaSub">
-              Tell us your requirement and we’ll respond with a quote and availability.
+              Share your requirement, drawing or site details and we’ll help you with the right execution approach.
             </p>
           </div>
 
           <div className="ctaRight">
-            <Button onClick={() => nav("/contact")}>Get Quote</Button>
-
-            {/* ✅ Browse Listing styled proper (curve + weight) */}
-            <button className="btnGhost btnGhost--cta" onClick={() => nav("/shop")}>
-              Browse Listing
+            <Button onClick={() => nav("/contact")}>Talk to Us</Button>
+            <button className="btnGhost btnGhost--cta" onClick={() => nav("/work")}>
+              Browse Work
             </button>
           </div>
         </section>

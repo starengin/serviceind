@@ -1,42 +1,85 @@
-﻿import { useEffect, useState } from "react";
-import { api } from "../../lib/api.js";
-import { getUser, logout } from "../../lib/auth.js";
-import { useNavigate } from "react-router-dom";
+﻿import { getUser, logout } from "../../lib/auth.js";
 
-export default function Topbar() {
-  const nav = useNavigate();
-  const [me, setMe] = useState(getUser());
+export default function Topbar({ onMenuClick }) {
+  const user = getUser();
 
-  useEffect(() => {
-    api.me().then((r) => setMe(r.user)).catch(() => {});
-  }, []);
+  function handleLogout() {
+    logout();
 
-  const onLogout = () => {
-    // friendly logout message
-    const ok = confirm("Thank you! Are you sure you want to logout?");
-    if (!ok) return;
-logout();
+    const PUBLIC_HOME =
+      import.meta.env.VITE_PUBLIC_HOME_URL ||
+      (import.meta.env.DEV
+        ? "http://localhost:5173"
+        : "https://www.serviceind.co.in");
 
-// ✅ always go to public website home (no back to portal pages)
-const PUBLIC_HOME =
-  import.meta.env.VITE_PUBLIC_HOME_URL || "https://www.stareng.co.in";
+    window.location.href = PUBLIC_HOME;
+  }
 
-window.location.replace(PUBLIC_HOME);
-  };
+  const initial = String(user?.name || user?.email || "U")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
 
   return (
-    <header className="hidden lg:flex sticky top-0 z-20 h-16 items-center justify-between px-6 bg-white/80 backdrop-blur border-b">
-      <div>
-        <div className="star-animated-gradient-text text-base font-semibold">Welcome{me?.name ? `, ${me.name}` : ""} 👋</div>
-        <div className="text-xs text-slate-500">Your account dashboard</div>
-      </div>
+    <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/84 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+      <div className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition shadow-sm"
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
 
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          <div className="star-animated-gradient-text text-sm font-semibold">{me?.name || "Customer"}</div>
-          <div className="text-xs text-slate-500">{me?.email || ""}</div>
+          <div className="min-w-0">
+            <div
+              className="truncate text-base sm:text-lg font-extrabold tracking-tight"
+              style={{
+                background:
+                  "linear-gradient(135deg, #0f3d91 0%, #2563eb 48%, #0ea5e9 78%, #f59e0b 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              SERVICE INDIA
+            </div>
+            <div className="text-xs text-slate-500 truncate -mt-0.5">
+              Customer Portal
+            </div>
+          </div>
+
+          <span className="hidden sm:inline-flex rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700">
+            LIVE
+          </span>
         </div>
-        <button className="btn-primary" onClick={onLogout}>Logout</button>
+
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="hidden md:flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#0f3d91] via-[#2563eb] to-[#f59e0b] text-white grid place-items-center text-sm font-extrabold shadow-[0_10px_24px_rgba(37,99,235,0.22)]">
+              {initial}
+            </div>
+
+            <div className="text-right min-w-0">
+              <div className="text-sm font-semibold text-slate-800 truncate max-w-[180px]">
+                {user?.name || "Customer"}
+              </div>
+              <div className="text-xs text-slate-500 truncate max-w-[240px]">
+                {user?.email || ""}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 h-10 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition shadow-sm"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </header>
   );

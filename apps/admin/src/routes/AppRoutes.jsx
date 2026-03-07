@@ -1,18 +1,23 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+
 import Login from "../screens/Login";
 import Dashboard from "../screens/Dashboard";
 import Customers from "../screens/Customers";
 import Transactions from "../screens/Transactions";
 import Ledger from "../screens/Ledger";
+import EmailCenter from "../screens/EmailCenter";
+
 import AdminLayout from "../components/layouts/AdminLayout";
 import ProtectedRoute from "../components/layouts/ProtectedRoute";
-import EmailCenter from "../screens/EmailCenter";
 
 export default function AppRoutes() {
   return (
     <Routes>
+
+      {/* Login */}
       <Route path="/login" element={<Login />} />
 
+      {/* Protected Admin App */}
       <Route
         path="/"
         element={
@@ -27,6 +32,10 @@ export default function AppRoutes() {
         <Route path="ledger" element={<Ledger />} />
         <Route path="emails" element={<EmailCenter />} />
       </Route>
+
+      {/* Unknown route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+
     </Routes>
   );
 }

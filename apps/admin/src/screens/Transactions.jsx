@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import API, { api } from "../lib/api";
+import { getToken } from "../lib/auth.js";
+
 function normName(s) {
   return String(s || "")
     .toLowerCase()
@@ -14,14 +16,14 @@ function findPartyByName(customers, partyName) {
   const target = normName(partyName);
   if (!target) return null;
 
-  let m = customers.find((c) => normName(c.name) === target);
-  if (m) return m;
+  let exact = customers.find((c) => normName(c.name) === target);
+  if (exact) return exact;
 
-  m = customers.find((c) => {
+  let partial = customers.find((c) => {
     const n = normName(c.name);
     return n && (target.includes(n) || n.includes(target));
   });
-  if (m) return m;
+  if (partial) return partial;
 
   return null;
 }
@@ -82,10 +84,17 @@ function fmtDDMMMYYYY(d) {
   return `${dd}-${months[dt.getMonth()]}-${dt.getFullYear()}`;
 }
 
-// robust attach shape -> {id,name,url}
+function moneyINR(n) {
+  return Number(n || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function normalizePdfList(row) {
   const arr = row?.pdfs || row?.attachments || row?.docs || [];
   if (!Array.isArray(arr)) return [];
+
   return arr
     .map((p, idx) => {
       const id = p?.id ?? p?.pdfId ?? p?.docId ?? `${idx}`;
@@ -96,21 +105,35 @@ function normalizePdfList(row) {
         p?.name ||
         p?.path?.split?.("/")?.pop?.() ||
         `PDF-${idx + 1}.pdf`;
+
       const url =
-  p?.url ||
-  p?.fileUrl ||
-  p?.publicUrl ||
-  (p?.id != null ? `/pdfs/${p.id}` : "") ||   // ✅ default route by id
-  "";
+        p?.url ||
+        p?.fileUrl ||
+        p?.publicUrl ||
+        (p?.id != null ? `/pdfs/${p.id}` : "") ||
+        "";
+
       return { id: String(id), name: String(name), url: String(url) };
     })
     .filter((x) => x.name);
 }
 
-// call api method if exists else fallback to axios instance
 async function callApiMaybe(fn, fallback) {
   if (typeof fn === "function") return fn();
   return fallback();
+}
+
+function getTypeUi(type) {
+  const map = {
+    SALE: { label: "SALE", bg: "rgba(37,99,235,0.10)", color: "#1d4ed8", border: "rgba(37,99,235,0.18)" },
+    PURCHASE: { label: "PURCHASE", bg: "rgba(2,132,199,0.10)", color: "#0369a1", border: "rgba(2,132,199,0.18)" },
+    PAYMENT: { label: "PAYMENT", bg: "rgba(245,158,11,0.12)", color: "#b45309", border: "rgba(245,158,11,0.22)" },
+    RECEIPT: { label: "RECEIPT", bg: "rgba(16,185,129,0.12)", color: "#047857", border: "rgba(16,185,129,0.22)" },
+    SALES_RETURN: { label: "SALES RETURN", bg: "rgba(168,85,247,0.12)", color: "#7e22ce", border: "rgba(168,85,247,0.22)" },
+    PURCHASE_RETURN: { label: "PURCHASE RETURN", bg: "rgba(236,72,153,0.12)", color: "#be185d", border: "rgba(236,72,153,0.22)" },
+    JOURNAL: { label: "JOURNAL", bg: "rgba(100,116,139,0.12)", color: "#334155", border: "rgba(100,116,139,0.22)" },
+  };
+  return map[type] || { label: type || "-", bg: "rgba(2,6,23,0.06)", color: "#0f172a", border: "rgba(2,6,23,0.10)" };
 }
 
 const IconBtn = ({ title, onClick, danger, children }) => (
@@ -130,6 +153,7 @@ const IconBtn = ({ title, onClick, danger, children }) => (
       display: "grid",
       placeItems: "center",
       fontFamily: "Arial, Helvetica, sans-serif",
+      boxShadow: "0 6px 14px rgba(2,6,23,0.04)",
     }}
   >
     {children}
@@ -159,9 +183,9 @@ const Modal = ({ open, title, onClose, children }) => {
   );
 };
 
-function Field({ label, children, hint }) {
+function Field({ label, children, hint, full }) {
   return (
-    <div style={S.field}>
+    <div style={{ ...S.field, ...(full ? { gridColumn: "1 / -1" } : {}) }}>
       <div style={S.labelRow}>
         <div style={S.label}>{label}</div>
         {hint ? <div style={S.hint}>{hint}</div> : null}
@@ -178,7 +202,6 @@ export default function Transactions() {
   const [customers, setCustomers] = useState([]);
   const [rows, setRows] = useState([]);
 
-  // filters
   const [from, setFrom] = useState(() => {
     const d = new Date(Date.now() - 30 * 86400000);
     return d.toISOString().slice(0, 10);
@@ -186,35 +209,31 @@ export default function Transactions() {
   const [to, setTo] = useState(() => todayISO());
   const [q, setQ] = useState("");
 
-  // modal
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState("create"); // create | view | edit
   const [saving, setSaving] = useState(false);
 
-const blank = {
-  type: "SALE",
-  partyId: "",
-  date: todayISO(),
-  voucherNo: "",
-  amount: "",
-  drcr: drcrForType("SALE"),
-  narration: "",
-  sendEmail: false, // ✅ NEW
-};
-  const [form, setForm] = useState(blank);
+  const blank = {
+    type: "SALE",
+    partyId: "",
+    date: todayISO(),
+    voucherNo: "",
+    amount: "",
+    drcr: drcrForType("SALE"),
+    narration: "",
+    sendEmail: false,
+  };
 
-  // selected row for edit/view
+  const [form, setForm] = useState(blank);
   const [selectedRow, setSelectedRow] = useState(null);
 
-  // scan
   const [scanLoading, setScanLoading] = useState(false);
   const [scanFile, setScanFile] = useState(null);
   const [scanFileName, setScanFileName] = useState("");
   const [scanError, setScanError] = useState("");
 
-  // attachments: create/edit new files
-  const [newFiles, setNewFiles] = useState([]); // File[]
-  const [existingPdfs, setExistingPdfs] = useState([]); // normalized {id,name,url}
+  const [newFiles, setNewFiles] = useState([]);
+  const [existingPdfs, setExistingPdfs] = useState([]);
 
   async function loadAll() {
     setErr("");
@@ -244,25 +263,28 @@ const blank = {
 
   async function applyFilter() {
     if (String(from) > String(to)) {
-      setErr("From date must be <= To date");
+      setErr("From date must be less than or equal to To date");
       return;
     }
     await loadAll();
   }
 
   const filtered = useMemo(() => {
-    // backend already filters by q, still keep safe local filter
     const s = q.trim().toLowerCase();
     if (!s) return rows;
+
     return rows.filter((x) => {
-      const v = `${x?.voucherNo || ""} ${x?.narration || ""} ${x?.type || ""}`.toLowerCase();
+      const partyText = `${x?.partyName || ""}`.toLowerCase();
+      const v = `${x?.voucherNo || ""} ${x?.narration || ""} ${x?.type || ""} ${partyText}`.toLowerCase();
       return v.includes(s);
     });
   }, [rows, q]);
 
   const partyNameById = useMemo(() => {
     const map = new Map();
-    for (const c of customers || []) map.set(String(c.id), c.name);
+    for (const c of customers || []) {
+      map.set(String(c.id), c.name);
+    }
     return map;
   }, [customers]);
 
@@ -274,28 +296,25 @@ const blank = {
   }
 
   function openCreate() {
-  setMode("create");
-  setSelectedRow(null);
-
-  const t = "SALE";
-  setForm({
-    ...blank,
-    type: t,
-    drcr: drcrForType(t),
-    partyId: "", // ✅ no default party
-    date: todayISO(),
-    sendEmail: false, // ✅ NEW
-  });
-
-  resetAttachState();
+    const t = "SALE";
+    setMode("create");
+    setSelectedRow(null);
+    setForm({
+      ...blank,
+      type: t,
+      drcr: drcrForType(t),
+      partyId: "",
+      date: todayISO(),
+      sendEmail: false,
+    });
+    resetAttachState();
     setScanError("");
-  setOpen(true);
-}
+    setOpen(true);
+  }
 
   function openView(row) {
     setMode("view");
     setSelectedRow(row || null);
-
     setForm({
       type: row?.type || "SALE",
       partyId: row?.partyId ? String(row.partyId) : "",
@@ -306,16 +325,15 @@ const blank = {
       narration: row?.narration || "",
       sendEmail: false,
     });
-
     resetAttachState();
     setExistingPdfs(normalizePdfList(row));
+    setScanError("");
     setOpen(true);
   }
 
   function openEdit(row) {
     setMode("edit");
     setSelectedRow(row || null);
-
     setForm({
       type: row?.type || "SALE",
       partyId: row?.partyId ? String(row.partyId) : "",
@@ -326,38 +344,37 @@ const blank = {
       narration: row?.narration || "",
       sendEmail: false,
     });
-
     resetAttachState();
     setExistingPdfs(normalizePdfList(row));
+    setScanError("");
     setOpen(true);
   }
 
   function onTypeChange(nextType) {
-    const t = nextType;
-    const auto = drcrForType(t);
     setForm((p) => ({
       ...p,
-      type: t,
-      drcr: t === "JOURNAL" ? (p.drcr || "DR") : auto,
-      narration: t === "JOURNAL" ? p.narration : "",
+      type: nextType,
+      drcr: nextType === "JOURNAL" ? p.drcr || "DR" : drcrForType(nextType),
+      narration: nextType === "JOURNAL" ? p.narration : "",
     }));
 
-    // for create/edit: scanning not for journal
-    if (t === "JOURNAL") {
+    if (nextType === "JOURNAL") {
       setScanFile(null);
       setScanFileName("");
+      setScanError("");
     }
   }
 
   async function onScanPdf(file) {
     if (!file) return;
-    setErr("");
+
     setScanLoading(true);
     setScanFile(file);
     setScanFileName(file.name || "PDF");
+    setScanError("");
+    setErr("");
 
     try {
-      // ✅ supports both names: scanTransactionPDF / scanTransactionPdf
       const res = await callApiMaybe(
         () => api.scanTransactionPDF?.(file),
         async () => {
@@ -369,111 +386,99 @@ const blank = {
         }
       );
 
-      // ✅ accept multiple backend shapes
-// ✅ accept multiple backend shapes (ultra-robust)
-const payload = res?.data ?? res ?? {};
+      const payload = res?.data ?? res ?? {};
 
-function pickExtracted(obj) {
-  const candidates = [
-    obj?.extracted,
-    obj?.extractedData,
-    obj?.data?.extracted,
-    obj?.data,
-    obj?.result,
-    obj,
-  ];
+      function pickExtracted(obj) {
+        const candidates = [
+          obj?.extracted,
+          obj?.extractedData,
+          obj?.data?.extracted,
+          obj?.data,
+          obj?.result,
+          obj,
+        ];
 
-  for (const c of candidates) {
-    if (!c) continue;
+        for (const c of candidates) {
+          if (!c) continue;
 
-    // sometimes backend may return JSON string
-    if (typeof c === "string") {
-      try {
-        const j = JSON.parse(c);
-        if (j) {
-          const got = pickExtracted(j);
-          if (got) return got;
+          if (typeof c === "string") {
+            try {
+              const j = JSON.parse(c);
+              if (j) {
+                const got = pickExtracted(j);
+                if (got) return got;
+              }
+            } catch {}
+            continue;
+          }
+
+          if (typeof c === "object") {
+            if (c?.extracted && typeof c.extracted === "object") return c.extracted;
+            if (c.type || c.partyName || c.voucherNo || c.amount || c.date || c.narration) return c;
+          }
         }
-      } catch {}
-      continue;
-    }
+        return null;
+      }
 
-    if (typeof c === "object") {
-      // nested again
-      if (c?.extracted && typeof c.extracted === "object") return c.extracted;
+      const rawExtracted = pickExtracted(payload);
 
-      // if it already looks like extracted object
-      if (c.type || c.partyName || c.voucherNo || c.amount || c.date || c.narration) return c;
-    }
-  }
-  return null;
-}
+      if (!rawExtracted) {
+        setScanError("Scan failed: extracted object not found");
+        return;
+      }
 
-const rawExtracted = pickExtracted(payload);
+      const data = {
+        type: rawExtracted.type || rawExtracted.txnType || rawExtracted.voucherType || "",
+        partyName: rawExtracted.partyName || rawExtracted.party || rawExtracted.customerName || rawExtracted.customer || "",
+        voucherNo: rawExtracted.voucherNo || rawExtracted.vchNo || rawExtracted.invoiceNo || rawExtracted.no || "",
+        date: rawExtracted.date || rawExtracted.txnDate || rawExtracted.transactionDate || "",
+        amount: rawExtracted.amount || rawExtracted.total || rawExtracted.totalAmount || "",
+        narration: rawExtracted.narration || "",
+        drcr: rawExtracted.drcr || "",
+      };
 
-console.log("SCAN RAW PAYLOAD:", payload);
-console.log("SCAN PICKED EXTRACTED:", rawExtracted);
+      const hasAny =
+        !!(data.type || data.partyName || data.voucherNo || data.amount || data.date || data.narration);
 
-if (!rawExtracted) {
-  setScanError("Scan failed: extracted object not found (check server response in console)");
-  return;
-}
+      if (!hasAny) {
+        setScanError("Scan failed: extracted data is empty");
+        return;
+      }
 
-// ✅ normalize field names (different backends use different keys)
-const data = {
-  type: rawExtracted.type || rawExtracted.txnType || rawExtracted.voucherType || "",
-  partyName: rawExtracted.partyName || rawExtracted.party || rawExtracted.customerName || rawExtracted.customer || "",
-  voucherNo: rawExtracted.voucherNo || rawExtracted.vchNo || rawExtracted.invoiceNo || rawExtracted.no || "",
-  date: rawExtracted.date || rawExtracted.txnDate || rawExtracted.transactionDate || "",
-  amount: rawExtracted.amount || rawExtracted.total || rawExtracted.totalAmount || "",
-  narration: rawExtracted.narration || "",
-  drcr: rawExtracted.drcr || "",
-};
+      let partyList = customers;
 
-const hasAny =
-  !!(data.type || data.partyName || data.voucherNo || data.amount || data.date || data.narration);
+      if (!partyList || partyList.length === 0) {
+        try {
+          const cRes = await api.customers();
+          partyList = cRes?.data ?? cRes ?? [];
+          setCustomers(partyList);
+        } catch {}
+      }
 
-if (!hasAny) {
-  setScanError("Scan failed: extracted object empty (check server logs + console payload)");
-  return;
-}
+      const match = findPartyByName(partyList, data.partyName);
+      const pid = match ? String(match.id) : "";
 
-setScanError(""); // ✅ clear if scan worked
+      if (!pid) {
+        setScanError(
+          `Party "${data.partyName || "Unknown"}" not found in customers list. Please select or create the customer manually.`
+        );
+      } else {
+        setScanError("");
+      }
 
-// ✅ Ensure customers loaded before matching
-let partyList = customers;
-
-if (!partyList || partyList.length === 0) {
-  try {
-    const cRes = await api.customers();
-    partyList = cRes?.data ?? cRes ?? [];
-    setCustomers(partyList);
-  } catch {}
-}
-
-const match = findPartyByName(partyList, data.partyName);
-const pid = match ? String(match.id) : "";
-
-if (!pid) {
-  setScanError(`Party "${data.partyName || "Unknown"}" customer list me nahi hai. Please select/create customer.`);
-} else {
-  setScanError("");
-}
-
-setForm((p) => ({
-  ...p,
-  type: data.type || p.type,
-  partyId: pid || p.partyId,
-  date: data.date || p.date,
-  voucherNo: data.voucherNo || p.voucherNo,
-  amount: data.amount ? String(data.amount) : p.amount,
-  drcr: (data.type || p.type) === "JOURNAL" ? (p.drcr || "DR") : drcrForType(data.type || p.type),
-  narration: (data.type || p.type) === "JOURNAL" ? (data.narration || p.narration) : "",
-}));
-} catch (e) {
-  setScanError(e?.response?.data?.message || e.message || "Scan failed");
-  // ✅ don't use setErr here, warna top red banner show hoga
-} finally {
+      setForm((p) => ({
+        ...p,
+        type: data.type || p.type,
+        partyId: pid || p.partyId,
+        date: data.date || p.date,
+        voucherNo: data.voucherNo || p.voucherNo,
+        amount: data.amount ? String(data.amount) : p.amount,
+        drcr: (data.type || p.type) === "JOURNAL" ? p.drcr || "DR" : drcrForType(data.type || p.type),
+        narration: (data.type || p.type) === "JOURNAL" ? data.narration || p.narration : "",
+      }));
+    } catch (e) {
+      setScanError(e?.response?.data?.message || e.message || "Scan failed");
+    } finally {
       setScanLoading(false);
     }
   }
@@ -487,22 +492,19 @@ setForm((p) => ({
     if (!String(form.amount || "").trim()) return setErr("Amount required");
 
     const amt = Number(String(form.amount).replace(/,/g, ""));
-    if (!Number.isFinite(amt) || amt <= 0) return setErr("Amount must be a valid number > 0");
+    if (!Number.isFinite(amt) || amt <= 0) return setErr("Amount must be a valid number greater than 0");
 
-    // journal rules
     if (form.type === "JOURNAL") {
       if (!form.drcr) return setErr("Dr/Cr required for Journal");
       if (!String(form.narration || "").trim()) return setErr("Narration required for Journal");
     }
 
-    // non-journal auto drcr
     const drcr = form.type === "JOURNAL" ? form.drcr : drcrForType(form.type);
 
     try {
       setSaving(true);
 
       if (mode === "create") {
-        // ✅ Create = multipart (auto-attach scan pdf + selected pdfs)
         const fd = new FormData();
         fd.append("type", form.type);
         fd.append("partyId", String(form.partyId));
@@ -510,13 +512,13 @@ setForm((p) => ({
         fd.append("voucherNo", form.voucherNo || "");
         fd.append("amount", String(amt));
         fd.append("drcr", drcr);
-        fd.append("narration", form.type === "JOURNAL" ? String(form.narration || "") : (form.narration || ""));
+        fd.append(
+          "narration",
+          form.type === "JOURNAL" ? String(form.narration || "") : form.narration || ""
+        );
         fd.append("sendEmail", form.sendEmail ? "1" : "0");
 
-        // ✅ auto attach scanned pdf (if any)
         if (scanFile) fd.append("pdfs", scanFile);
-
-        // ✅ attach manually chosen pdfs (multi)
         for (const f of newFiles || []) fd.append("pdfs", f);
 
         await callApiMaybe(
@@ -535,7 +537,6 @@ setForm((p) => ({
       if (mode === "edit") {
         if (!selectedRow?.id) return setErr("Missing transaction id");
 
-        // ✅ Update basic fields (no pdfs here)
         const payload = {
           type: form.type,
           partyId: String(form.partyId),
@@ -543,7 +544,7 @@ setForm((p) => ({
           voucherNo: form.voucherNo || "",
           amount: String(amt),
           drcr,
-          narration: form.type === "JOURNAL" ? String(form.narration || "") : (form.narration || ""),
+          narration: form.type === "JOURNAL" ? String(form.narration || "") : form.narration || "",
           sendEmail: !!form.sendEmail,
         };
 
@@ -552,7 +553,6 @@ setForm((p) => ({
           () => API.put(`/transactions/${selectedRow.id}`, payload)
         );
 
-        // ✅ If user added new PDFs OR scanned in edit mode (optional), upload them
         const uploadList = [];
         if (scanFile) uploadList.push(scanFile);
         for (const f of newFiles || []) uploadList.push(f);
@@ -574,7 +574,12 @@ setForm((p) => ({
         await loadAll();
       }
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.response?.data?.error || e.message || "Save failed");
+      setErr(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          e.message ||
+          "Save failed"
+      );
     } finally {
       setSaving(false);
     }
@@ -582,6 +587,7 @@ setForm((p) => ({
 
   async function onDelete(row) {
     if (!row?.id) return;
+
     const ok = confirm(`Delete this transaction?\n${row?.type || ""} ${row?.voucherNo || ""}`);
     if (!ok) return;
 
@@ -599,6 +605,7 @@ setForm((p) => ({
 
   async function onRemoveExistingPdf(pdfId) {
     if (!selectedRow?.id) return;
+
     const ok = confirm("Remove this PDF?");
     if (!ok) return;
 
@@ -608,11 +615,22 @@ setForm((p) => ({
         () => api.deleteTransactionPDF?.(selectedRow.id, pdfId),
         () => API.delete(`/transactions/${selectedRow.id}/pdfs/${pdfId}`)
       );
-      // refresh modal list (local) + refresh table
+
       setExistingPdfs((p) => p.filter((x) => String(x.id) !== String(pdfId)));
       await loadAll();
     } catch (e) {
       setErr(e?.response?.data?.message || e.message || "Failed to remove PDF");
+    }
+  }
+
+  async function onSendTxnEmail(row) {
+    try {
+      const ok = confirm("Send email for this transaction?");
+      if (!ok) return;
+      await api.sendTransactionEmail(row.id);
+      alert("Email sent ✅");
+    } catch (e) {
+      alert(e?.response?.data?.message || e.message || "Failed to send email");
     }
   }
 
@@ -622,10 +640,11 @@ setForm((p) => ({
 
   return (
     <div style={S.page}>
-      <div style={S.topRow}>
+      <div style={S.hero}>
         <div>
+          <div style={S.badge}>SERVICE INDIA • Transactions</div>
           <div style={S.h1}>Transactions</div>
-          <div style={S.sub}>Manual entry + PDF scan autofill</div>
+          <div style={S.sub}>Manual entry, PDF smart scan autofill, attachments and email dispatch.</div>
         </div>
 
         <div style={S.topActions}>
@@ -634,6 +653,7 @@ setForm((p) => ({
               <div style={S.filterLabel}>From</div>
               <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={S.date} />
             </div>
+
             <div style={S.filterBox}>
               <div style={S.filterLabel}>To</div>
               <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={S.date} />
@@ -647,7 +667,7 @@ setForm((p) => ({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search voucher / narration..."
+            placeholder="Search voucher / party / narration..."
             style={S.search}
           />
 
@@ -694,71 +714,75 @@ setForm((p) => ({
                   </td>
                 </tr>
               ) : (
-                filtered.map((r) => (
-                  <tr key={r.id}>
-                    <td style={S.td}>{fmtDDMMMYYYY(r?.date)}</td>
-                    <td style={S.td}>{r?.type || ""}</td>
-                    <td style={S.td}>{partyNameById.get(String(r?.partyId || "")) || "-"}</td>
-                    <td style={S.td}>{r?.voucherNo || "-"}</td>
-                    <td style={{ ...S.td, textAlign: "right", fontWeight: 900 }}>
-                      ₹{" "}
-                      {Number(r?.amount || 0).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </td>
-                    <td style={S.td}>{r?.type === "JOURNAL" ? (r?.drcr || "-") : drcrForType(r?.type)}</td>
-                    <td style={S.td}>{r?.type === "JOURNAL" ? (r?.narration || "-") : (r?.narration || "-")}</td>
-                    <td style={{ ...S.td, textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                        <IconBtn title="View" onClick={() => openView(r)}>
-                          👁
-                        </IconBtn>
-                        <IconBtn title="Edit" onClick={() => openEdit(r)}>
-                          ✏️
-                        </IconBtn>
-                          <IconBtn
-    title="Send Transaction Email"
-    onClick={async () => {
-      try {
-        const ok = confirm("Send email for this transaction?");
-        if (!ok) return;
-        await api.sendTransactionEmail(r.id);
-        alert("Email sent ✅");
-      } catch (e) {
-        alert(e?.response?.data?.message || e.message || "Failed to send email");
-      }
-    }}
-  >
-    ✉️
-  </IconBtn>
-                        <IconBtn title="Delete" danger onClick={() => onDelete(r)}>
-                          🗑
-                        </IconBtn>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filtered.map((r) => {
+                  const typeUi = getTypeUi(r?.type);
+                  return (
+                    <tr key={r.id}>
+                      <td style={S.td}>{fmtDDMMMYYYY(r?.date)}</td>
+
+                      <td style={S.td}>
+                        <span
+                          style={{
+                            ...S.typeBadge,
+                            background: typeUi.bg,
+                            color: typeUi.color,
+                            borderColor: typeUi.border,
+                          }}
+                        >
+                          {typeUi.label}
+                        </span>
+                      </td>
+
+                      <td style={S.td}>{partyNameById.get(String(r?.partyId || "")) || "-"}</td>
+                      <td style={S.td}>{r?.voucherNo || "-"}</td>
+
+                      <td style={{ ...S.td, textAlign: "right", fontWeight: 900 }}>
+                        ₹ {moneyINR(r?.amount || 0)}
+                      </td>
+
+                      <td style={S.td}>
+                        <span style={r?.drcr === "CR" || drcrForType(r?.type) === "CR" ? S.crBadge : S.drBadge}>
+                          {r?.type === "JOURNAL" ? r?.drcr || "-" : drcrForType(r?.type)}
+                        </span>
+                      </td>
+
+                      <td style={S.td}>{r?.narration || "-"}</td>
+
+                      <td style={{ ...S.td, textAlign: "right" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                          <IconBtn title="View" onClick={() => openView(r)}>👁</IconBtn>
+                          <IconBtn title="Edit" onClick={() => openEdit(r)}>✏️</IconBtn>
+                          <IconBtn title="Send Transaction Email" onClick={() => onSendTxnEmail(r)}>✉️</IconBtn>
+                          <IconBtn title="Delete" danger onClick={() => onDelete(r)}>🗑</IconBtn>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal */}
       <Modal
         open={open}
-        title={mode === "create" ? "New Transaction" : mode === "edit" ? "Edit Transaction" : "View Transaction"}
+        title={
+          mode === "create"
+            ? "New Transaction"
+            : mode === "edit"
+            ? "Edit Transaction"
+            : "View Transaction"
+        }
         onClose={() => setOpen(false)}
       >
-        {/* PDF Scan (not for Journal) */}
         {canScan && (
           <div style={S.scanBox}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={S.scanHead}>
               <div>
                 <div style={S.scanTitle}>Upload PDF & Auto Fill</div>
                 <div style={S.scanSub}>
-                  Upload voucher PDF → scan → fields auto fill. ✅ This PDF will auto-attach on save.
+                  Upload a voucher PDF, scan it and auto-fill the fields. This scanned PDF will be auto-attached on save.
                 </div>
               </div>
 
@@ -808,20 +832,8 @@ setForm((p) => ({
                 </option>
               ))}
             </select>
-                        {scanError ? (
-              <div style={{
-                marginTop: 8,
-                padding: "10px 12px",
-                borderRadius: 12,
-                background: "rgba(239,68,68,0.10)",
-                border: "1px solid rgba(239,68,68,0.22)",
-                color: "#991b1b",
-                fontWeight: 900,
-                fontSize: 12
-              }}>
-                {scanError}
-              </div>
-            ) : null}
+
+            {scanError ? <div style={S.scanErr}>{scanError}</div> : null}
           </Field>
 
           <Field label="Date of Transaction">
@@ -840,7 +852,7 @@ setForm((p) => ({
               value={form.voucherNo}
               disabled={isView}
               onChange={(e) => setForm((p) => ({ ...p, voucherNo: e.target.value }))}
-              placeholder="Optional (but recommended)"
+              placeholder="Optional but recommended"
             />
           </Field>
 
@@ -868,41 +880,45 @@ setForm((p) => ({
               </select>
             </Field>
           ) : (
-            <Field label="Dr / Cr (Auto)" hint="Locked (as per rules)">
+            <Field label="Dr / Cr (Auto)" hint="Locked as per rules">
               <input style={S.input} value={drcrForType(form.type)} disabled />
             </Field>
           )}
 
           <Field
             label={form.type === "JOURNAL" ? "Narration (Required for Journal)" : "Narration"}
-            hint={form.type === "JOURNAL" ? "This will show in particulars instead of 'Journal'" : ""}
+            hint={form.type === "JOURNAL" ? "This will appear in particulars instead of 'Journal'" : ""}
+            full
           >
             <input
               style={S.input}
               value={form.narration}
               disabled={isView || form.type !== "JOURNAL"}
               onChange={(e) => setForm((p) => ({ ...p, narration: e.target.value }))}
-              placeholder={form.type === "JOURNAL" ? "e.g. To Being adjustment..." : "Only Journal uses narration"}
+              placeholder={
+                form.type === "JOURNAL"
+                  ? "e.g. Being adjustment entry..."
+                  : "Only Journal uses narration"
+              }
             />
           </Field>
 
-          <Field label="Attachments (PDFs)" hint="Single / Multiple both supported">
+          <Field label="Attachments (PDFs)" hint="Single or multiple supported" full>
             <input
               type="file"
               accept="application/pdf"
               multiple
               disabled={isView}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                setNewFiles(files);
-              }}
+              onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
             />
+
             <div style={S.smallNote}>
               {scanFile ? (
                 <div>
                   Auto-attach: <b>{scanFile.name}</b>
                 </div>
               ) : null}
+
               {newFiles?.length ? (
                 <div>
                   New selected: <b>{newFiles.length}</b> file(s)
@@ -915,67 +931,64 @@ setForm((p) => ({
             {existingPdfs?.length ? (
               <div style={S.pdfBox}>
                 <div style={S.pdfTitle}>Existing PDFs</div>
+
                 <div style={{ display: "grid", gap: 8 }}>
                   {existingPdfs.map((p) => {
-                    function getAuthToken() {
-  return localStorage.getItem("token") || localStorage.getItem("adminToken") || "";
-}
-  const base = API?.defaults?.baseURL || "http://localhost:5000";
-const token = getAuthToken();
+                    const base = API?.defaults?.baseURL || "http://localhost:5000";
+                    const token = getToken();
 
-let href = "#";
-if (p.url) {
-  const abs = p.url.startsWith("http")
-    ? p.url
-    : `${base}${p.url.startsWith("/") ? "" : "/"}${p.url}`;
+                    let href = "#";
+                    if (p.url) {
+                      const abs = p.url.startsWith("http")
+                        ? p.url
+                        : `${base}${p.url.startsWith("/") ? "" : "/"}${p.url}`;
 
-  // ✅ add token so new tab can access
-  href = token ? `${abs}${abs.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}` : abs;
-}
-    
+                      href = token
+                        ? `${abs}${abs.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+                        : abs;
+                    }
 
-  return (
-    <div key={p.id} style={S.pdfRow}>
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        style={{ color: "#0f172a", fontWeight: 900, textDecoration: "underline" }}
-        onClick={(e) => {
-          if (!p.url) e.preventDefault();
-        }}
-        title={p.url ? "Open PDF" : "No URL provided by backend"}
-      >
-        {p.name}
-      </a>
+                    return (
+                      <div key={p.id} style={S.pdfRow}>
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={S.pdfLink}
+                          onClick={(e) => {
+                            if (!p.url) e.preventDefault();
+                          }}
+                          title={p.url ? "Open PDF" : "No URL provided by backend"}
+                        >
+                          {p.name}
+                        </a>
 
-      {mode === "edit" ? (
-        <button type="button" onClick={() => onRemoveExistingPdf(p.id)} style={S.pdfRemove}>
-          Remove
-        </button>
-      ) : null}
-    </div>
-  );
-})}
+                        {mode === "edit" ? (
+                          <button type="button" onClick={() => onRemoveExistingPdf(p.id)} style={S.pdfRemove}>
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
           </Field>
-          {canEdit && (
-  <div style={{ marginTop: 6 }}>
-    <label style={{ display: "flex", gap: 10, alignItems: "center", fontWeight: 900, fontSize: 12, color: "#0f172a" }}>
-      <input
-        type="checkbox"
-        checked={!!form.sendEmail}
-        onChange={(e) => setForm((p) => ({ ...p, sendEmail: e.target.checked }))}
-      />
-      Send transaction email
-    </label>
-    <div style={{ marginTop: 4, fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-      Uncheck = save only (no email).
-    </div>
-  </div>
-)}
+
+          {canEdit ? (
+            <div style={S.checkWrap}>
+              <label style={S.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={!!form.sendEmail}
+                  onChange={(e) => setForm((p) => ({ ...p, sendEmail: e.target.checked }))}
+                />
+                Send transaction email
+              </label>
+              <div style={S.checkHint}>Uncheck this if you want to save only without sending email.</div>
+            </div>
+          ) : null}
         </div>
 
         <div style={S.modalFoot}>
@@ -983,20 +996,27 @@ if (p.url) {
             Close
           </button>
 
-          {canEdit && (
+          {canEdit ? (
             <motion.button
-  whileTap={{ scale: 0.98 }}
-  onClick={onSave}
-  disabled={saving || !form.partyId || !!scanError}
-  style={S.primary}
->
-              {saving ? "Saving..." : mode === "create" ? "Save Transaction" : "Save Changes"}
+              whileTap={{ scale: 0.98 }}
+              onClick={onSave}
+              disabled={saving || !form.partyId || !!scanError}
+              style={S.primary}
+            >
+              {saving
+                ? "Saving..."
+                : mode === "create"
+                ? form.sendEmail
+                  ? "Save & Send Email"
+                  : "Save Transaction"
+                : "Save Changes"}
             </motion.button>
-          )}
+          ) : null}
         </div>
 
         <div style={S.note}>
-          Rules: Sales/Payment/Purchase Return = DR, Purchase/Receipt/Sales Return = CR. Only Journal allows DR/CR selection + narration required. PDF scan → auto-fill + auto-attach on save.
+          Rules: Sales / Payment / Purchase Return = DR. Purchase / Receipt / Sales Return = CR.
+          Only Journal allows manual DR/CR selection and requires narration. PDF smart scan auto-fills fields and auto-attaches the scanned PDF on save.
         </div>
       </Modal>
     </div>
@@ -1011,17 +1031,49 @@ const S = {
     fontFamily: "Arial, Helvetica, sans-serif",
   },
 
-  topRow: {
+  hero: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "end",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 14,
+  },
+
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 12px",
+    borderRadius: 999,
+    background: "rgba(37,99,235,0.10)",
+    border: "1px solid rgba(37,99,235,0.16)",
+    color: "#1d4ed8",
+    fontSize: 11,
+    fontWeight: 900,
+    marginBottom: 8,
+  },
+
+  h1: {
+    fontSize: 22,
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+
+  sub: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 700,
+    marginTop: 6,
+    lineHeight: 1.6,
+  },
+
+  topActions: {
+    display: "flex",
     gap: 10,
+    alignItems: "center",
     flexWrap: "wrap",
   },
-  h1: { fontSize: 20, fontWeight: 900, color: "#0f172a" },
-  sub: { fontSize: 12, color: "#64748b", fontWeight: 700, marginTop: 4 },
-
-  topActions: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
 
   filters: {
     display: "flex",
@@ -1029,11 +1081,23 @@ const S = {
     gap: 10,
     padding: 10,
     border: "1px solid rgba(2,6,23,0.08)",
-    borderRadius: 14,
-    background: "#fff",
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.88)",
+    boxShadow: "0 8px 18px rgba(2,6,23,0.04)",
+    backdropFilter: "blur(10px)",
   },
-  filterBox: { display: "grid", gap: 6 },
-  filterLabel: { fontSize: 11, fontWeight: 900, color: "#334155" },
+
+  filterBox: {
+    display: "grid",
+    gap: 6,
+  },
+
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: 900,
+    color: "#334155",
+  },
+
   date: {
     padding: "8px 10px",
     borderRadius: 12,
@@ -1041,32 +1105,40 @@ const S = {
     fontSize: 12,
     fontFamily: "Arial, Helvetica, sans-serif",
     outline: "none",
+    background: "#fff",
+    color: "#0f172a",
   },
 
   search: {
-    width: 240,
-    padding: "9px 10px",
-    borderRadius: 12,
+    width: 260,
+    maxWidth: "92vw",
+    padding: "10px 12px",
+    borderRadius: 14,
     border: "1px solid rgba(2,6,23,0.12)",
     fontSize: 13,
     outline: "none",
     fontFamily: "Arial, Helvetica, sans-serif",
+    background: "rgba(255,255,255,0.92)",
+    color: "#0f172a",
+    boxSizing: "border-box",
   },
 
   primary: {
-    padding: "9px 12px",
-    borderRadius: 12,
+    padding: "10px 14px",
+    borderRadius: 14,
     border: "none",
-    background: "linear-gradient(135deg,#2563eb,#7c3aed)",
+    background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
     color: "#fff",
     fontWeight: 900,
     cursor: "pointer",
     fontSize: 13,
     fontFamily: "Arial, Helvetica, sans-serif",
+    boxShadow: "0 12px 24px rgba(11,94,215,0.18)",
   },
+
   secondary: {
-    padding: "9px 12px",
-    borderRadius: 12,
+    padding: "10px 14px",
+    borderRadius: 14,
     border: "1px solid rgba(2,6,23,0.12)",
     background: "#fff",
     color: "#0f172a",
@@ -1089,18 +1161,46 @@ const S = {
 
   card: {
     marginTop: 12,
-    background: "#fff",
-    borderRadius: 16,
+    background: "rgba(255,255,255,0.88)",
+    borderRadius: 18,
     border: "1px solid rgba(2,6,23,0.08)",
-    boxShadow: "0 10px 24px rgba(2,6,23,0.06)",
-    padding: 12,
+    boxShadow: "0 12px 28px rgba(2,6,23,0.06)",
+    padding: 14,
+    backdropFilter: "blur(10px)",
   },
-  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  cardTitle: { fontSize: 13, fontWeight: 900, color: "#0f172a" },
-  muted: { fontSize: 12, color: "#64748b", fontWeight: 800 },
 
-  tableWrap: { marginTop: 10, overflow: "auto" },
-  table: { width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 980 },
+  cardHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+
+  muted: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 800,
+  },
+
+  tableWrap: {
+    marginTop: 10,
+    overflow: "auto",
+  },
+
+  table: {
+    width: "100%",
+    borderCollapse: "separate",
+    borderSpacing: 0,
+    minWidth: 980,
+  },
+
   th: {
     textAlign: "left",
     fontSize: 11,
@@ -1108,12 +1208,13 @@ const S = {
     color: "#334155",
     padding: "10px 10px",
     borderBottom: "1px solid rgba(2,6,23,0.10)",
-    background: "rgba(248,250,252,0.9)",
+    background: "rgba(248,250,252,0.95)",
     position: "sticky",
     top: 0,
     zIndex: 1,
     whiteSpace: "nowrap",
   },
+
   td: {
     padding: "10px 10px",
     borderBottom: "1px solid rgba(2,6,23,0.08)",
@@ -1123,28 +1224,68 @@ const S = {
     whiteSpace: "nowrap",
   },
 
-  // modal
-modalBackdrop: {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(2,6,23,0.45)",
-  display: "grid",
-  placeItems: "center",
-  padding: 14,
-  zIndex: 999,
-  overflowY: "auto",            // ✅ if needed
-},
-modalCard: {
-  width: "min(880px, 96vw)",
-  background: "#fff",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "0 24px 90px rgba(2,6,23,0.30)",
-  overflow: "hidden",
-  maxHeight: "min(86vh, 780px)", // ✅ modal never goes out of screen
-  display: "flex",
-  flexDirection: "column",
-},
+  typeBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 8px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 900,
+    border: "1px solid",
+    whiteSpace: "nowrap",
+  },
+
+  drBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 38,
+    padding: "4px 8px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 900,
+    color: "#1d4ed8",
+    background: "rgba(37,99,235,0.10)",
+    border: "1px solid rgba(37,99,235,0.18)",
+  },
+
+  crBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 38,
+    padding: "4px 8px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 900,
+    color: "#047857",
+    background: "rgba(16,185,129,0.12)",
+    border: "1px solid rgba(16,185,129,0.20)",
+  },
+
+  modalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(2,6,23,0.45)",
+    display: "grid",
+    placeItems: "center",
+    padding: 14,
+    zIndex: 999,
+    overflowY: "auto",
+  },
+
+  modalCard: {
+    width: "min(900px, 96vw)",
+    background: "#fff",
+    borderRadius: 20,
+    border: "1px solid rgba(255,255,255,0.2)",
+    boxShadow: "0 24px 90px rgba(2,6,23,0.30)",
+    overflow: "hidden",
+    maxHeight: "min(86vh, 780px)",
+    display: "flex",
+    flexDirection: "column",
+  },
+
   modalHead: {
     padding: 14,
     display: "flex",
@@ -1152,7 +1293,13 @@ modalCard: {
     justifyContent: "space-between",
     borderBottom: "1px solid rgba(2,6,23,0.08)",
   },
-  modalTitle: { fontSize: 14, fontWeight: 900, color: "#0f172a" },
+
+  modalTitle: {
+    fontSize: 14,
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+
   modalClose: {
     height: 34,
     width: 34,
@@ -1162,11 +1309,12 @@ modalCard: {
     fontWeight: 900,
     cursor: "pointer",
   },
- modalBody: {
-  padding: 14,
-  overflowY: "auto",            // ✅ scroll inside modal
-  WebkitOverflowScrolling: "touch",
-},
+
+  modalBody: {
+    padding: 14,
+    overflowY: "auto",
+    WebkitOverflowScrolling: "touch",
+  },
 
   scanBox: {
     border: "1px solid rgba(2,6,23,0.10)",
@@ -1175,8 +1323,28 @@ modalCard: {
     background: "rgba(248,250,252,0.9)",
     marginBottom: 12,
   },
-  scanTitle: { fontSize: 13, fontWeight: 900, color: "#0f172a" },
-  scanSub: { marginTop: 4, fontSize: 12, color: "#64748b", fontWeight: 700 },
+
+  scanHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+
+  scanTitle: {
+    fontSize: 13,
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+
+  scanSub: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+    lineHeight: 1.6,
+  },
+
   scanBtn: {
     display: "inline-flex",
     alignItems: "center",
@@ -1184,19 +1352,63 @@ modalCard: {
     padding: "10px 12px",
     borderRadius: 12,
     border: "none",
-    background: "linear-gradient(135deg,#2563eb,#7c3aed)",
+    background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
     color: "#fff",
     fontWeight: 900,
     cursor: "pointer",
     fontSize: 13,
+    boxShadow: "0 10px 22px rgba(11,94,215,0.18)",
   },
-  scanFile: { marginTop: 10, fontSize: 12, color: "#0f172a", fontWeight: 800 },
 
-  formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
-  field: { display: "grid", gap: 6 },
-  labelRow: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" },
-  label: { fontSize: 12, fontWeight: 900, color: "#0f172a" },
-  hint: { fontSize: 11, fontWeight: 800, color: "#64748b" },
+  scanFile: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#0f172a",
+    fontWeight: 800,
+  },
+
+  scanErr: {
+    marginTop: 8,
+    padding: "10px 12px",
+    borderRadius: 12,
+    background: "rgba(239,68,68,0.10)",
+    border: "1px solid rgba(239,68,68,0.22)",
+    color: "#991b1b",
+    fontWeight: 900,
+    fontSize: 12,
+    lineHeight: 1.5,
+  },
+
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 12,
+  },
+
+  field: {
+    display: "grid",
+    gap: 6,
+  },
+
+  labelRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    alignItems: "baseline",
+  },
+
+  label: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+
+  hint: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: "#64748b",
+  },
+
   input: {
     width: "100%",
     padding: "10px 10px",
@@ -1206,8 +1418,17 @@ modalCard: {
     fontSize: 13,
     boxSizing: "border-box",
     fontFamily: "Arial, Helvetica, sans-serif",
+    background: "#fff",
+    color: "#0f172a",
   },
-  smallNote: { marginTop: 6, fontSize: 12, color: "#64748b", fontWeight: 700 },
+
+  smallNote: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+    lineHeight: 1.6,
+  },
 
   pdfBox: {
     marginTop: 10,
@@ -1216,8 +1437,29 @@ modalCard: {
     padding: 10,
     background: "rgba(248,250,252,0.9)",
   },
-  pdfTitle: { fontSize: 12, fontWeight: 900, color: "#0f172a", marginBottom: 8 },
-  pdfRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
+
+  pdfTitle: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#0f172a",
+    marginBottom: 8,
+  },
+
+  pdfRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+
+  pdfLink: {
+    color: "#0f172a",
+    fontWeight: 900,
+    textDecoration: "underline",
+    wordBreak: "break-word",
+  },
+
   pdfRemove: {
     padding: "7px 10px",
     borderRadius: 12,
@@ -1231,14 +1473,40 @@ modalCard: {
     whiteSpace: "nowrap",
   },
 
-  modalFoot: { marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" },
-  note: { marginTop: 10, fontSize: 12, color: "#64748b", fontWeight: 700 },
-};
+  checkWrap: {
+    gridColumn: "1 / -1",
+    marginTop: 6,
+  },
 
-// responsive
-const mq = window.matchMedia?.("(max-width: 980px)");
-if (mq?.matches) {
-  S.formGrid.gridTemplateColumns = "1fr";
-  S.search.width = "min(280px, 92vw)";
-  S.table.minWidth = 880;
-}
+  checkLabel: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    fontWeight: 900,
+    fontSize: 12,
+    color: "#0f172a",
+  },
+
+  checkHint: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  modalFoot: {
+    marginTop: 12,
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+
+  note: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+    lineHeight: 1.6,
+  },
+};

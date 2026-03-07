@@ -25,15 +25,15 @@ export default function Header() {
             </button>
 
             <NavLink to="/" className="brand brandWithLogo">
-              <img className="brandLogo" src="/brand/logo.jpg" alt="STAR Engineering" />
-              <span className="brandWord gradText">STAR ENGINEERING</span>
+              <img className="brandLogo" src="/brand/logo.jpeg" alt="SERVICE INDIA" />
+              <span className="brandWord gradText">SERVICE INDIA</span>
             </NavLink>
           </div>
 
           <nav className="nav desktopOnly">
             <NavLink to="/" end className="navLink">Home</NavLink>
             <NavLink to="/about" className="navLink">About</NavLink>
-            <NavLink to="/shop" className="navLink">Shop</NavLink>
+            <NavLink to="/work" className="navLink">Work</NavLink>
             <NavLink to="/contact" className="navLink">Contact</NavLink>
           </nav>
 

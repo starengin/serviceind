@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { api } from "../lib/api"; // adjust if needed
+import { api } from "../lib/api";
 
 function toISO(d) {
   return new Date(d).toISOString().slice(0, 10);
@@ -8,7 +8,10 @@ function toISO(d) {
 
 function moneyINR(n) {
   const v = Number(n || 0);
-  return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 const pageAnim = {
@@ -26,7 +29,7 @@ const cardAnim = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.22 } },
 };
 
-export default function Welcome() {
+export default function Dashboard() {
   const [from, setFrom] = useState(() => toISO(new Date(Date.now() - 30 * 86400000)));
   const [to, setTo] = useState(() => toISO(new Date()));
   const [loading, setLoading] = useState(true);
@@ -37,7 +40,6 @@ export default function Welcome() {
     setErr("");
     setLoading(true);
     try {
-      // ✅ IMPORTANT: api.dashboard should accept params {from,to}
       const res = await api.dashboard({ from, to });
       setData(res?.data ?? res);
     } catch (e) {
@@ -55,42 +57,73 @@ export default function Welcome() {
   const cards = useMemo(() => {
     const d = data || {};
     return [
-      { label: "Users", value: d.usersCount ?? 0, hint: "Total users/parties" },
-      { label: "Transactions", value: d.transactionsCount ?? 0, hint: "Selected period" },
-
-      { label: "Total Sales", value: `₹ ${moneyINR(d.totalSales)}`, hint: "SALE" },
-      { label: "Total Purchase", value: `₹ ${moneyINR(d.totalPurchase)}`, hint: "PURCHASE" },
-
-      { label: "Total Receipt", value: `₹ ${moneyINR(d.totalReceipt)}`, hint: "RECEIPT" },
-      { label: "Total Payment", value: `₹ ${moneyINR(d.totalPayment)}`, hint: "PAYMENT" },
-
-      { label: "Sales Return", value: `₹ ${moneyINR(d.totalSalesReturn)}`, hint: "SALES_RETURN" },
-      { label: "Purchase Return", value: `₹ ${moneyINR(d.totalPurchaseReturn)}`, hint: "PURCHASE_RETURN" },
+      {
+        label: "Customers",
+        value: d.usersCount ?? 0,
+        hint: "Registered customer accounts",
+      },
+      {
+        label: "Transactions",
+        value: d.transactionsCount ?? 0,
+        hint: "For selected period",
+      },
+      {
+        label: "Total Sales",
+        value: `₹ ${moneyINR(d.totalSales)}`,
+        hint: "SALE entries",
+      },
+      {
+        label: "Total Purchase",
+        value: `₹ ${moneyINR(d.totalPurchase)}`,
+        hint: "PURCHASE entries",
+      },
+      {
+        label: "Total Receipt",
+        value: `₹ ${moneyINR(d.totalReceipt)}`,
+        hint: "RECEIPT entries",
+      },
+      {
+        label: "Total Payment",
+        value: `₹ ${moneyINR(d.totalPayment)}`,
+        hint: "PAYMENT entries",
+      },
+      {
+        label: "Sales Return",
+        value: `₹ ${moneyINR(d.totalSalesReturn)}`,
+        hint: "SALES_RETURN entries",
+      },
+      {
+        label: "Purchase Return",
+        value: `₹ ${moneyINR(d.totalPurchaseReturn)}`,
+        hint: "PURCHASE_RETURN entries",
+      },
     ];
   }, [data]);
 
   return (
-    <motion.div
-      variants={pageAnim}
-      initial="hidden"
-      animate="show"
-      style={S.page}
-    >
-      {/* Header */}
-      <div style={S.headRow}>
+    <motion.div variants={pageAnim} initial="hidden" animate="show" style={S.page}>
+      <div style={S.hero}>
         <div>
+          <div style={S.badge}>SERVICE INDIA • Admin Dashboard</div>
           <div style={S.h1}>Welcome, Admin</div>
-          <div style={S.sub}>Quick overview (From–To period)</div>
+          <div style={S.sub}>
+            Quick financial and operational overview for the selected period.
+          </div>
         </div>
 
         <div style={S.topBtns}>
-          <a style={S.btn} href="/customers">Users</a>
-          <a style={S.btn} href="/transactions">Transactions</a>
-          <a style={S.btnPrimary} href="/ledger">Ledger</a>
+          <a style={S.btn} href="/customers">
+            Customers
+          </a>
+          <a style={S.btn} href="/transactions">
+            Transactions
+          </a>
+          <a style={S.btnPrimary} href="/ledger">
+            Ledger
+          </a>
         </div>
       </div>
 
-      {/* Filter Bar */}
       <div style={S.filterBar}>
         <div style={S.field}>
           <label style={S.label}>From</label>
@@ -125,7 +158,6 @@ export default function Welcome() {
 
       {err ? <div style={S.err}>{err}</div> : null}
 
-      {/* Cards */}
       {loading ? (
         <div style={S.skeletonGrid}>
           {Array.from({ length: 8 }).map((_, i) => (
@@ -156,13 +188,22 @@ export default function Welcome() {
         </motion.div>
       )}
 
-      {/* Quick Actions */}
       <motion.div variants={cardAnim} initial="hidden" animate="show" style={S.bigCard}>
         <div style={S.bigTitle}>Quick Actions</div>
+
         <div style={S.quickGrid}>
-          <a style={S.q} href="/transactions">+ New Transaction</a>
-          <a style={S.q} href="/ledger">View Ledger</a>
-          <a style={S.q} href="/customers">Manage Users</a>
+          <a style={S.q} href="/customers">
+            Manage Customers
+          </a>
+          <a style={S.q} href="/transactions">
+            + New Transaction
+          </a>
+          <a style={S.q} href="/ledger">
+            View Ledger
+          </a>
+          <a style={S.q} href="/emails">
+            Open Email Center
+          </a>
         </div>
       </motion.div>
     </motion.div>
@@ -177,77 +218,124 @@ const S = {
     margin: "0 auto",
   },
 
-  h1: { fontSize: "clamp(18px, 2.4vw, 24px)", fontWeight: 900, color: "#0f172a" },
-  sub: { fontSize: 12, color: "#64748b", fontWeight: 700, marginTop: 4 },
-
-  headRow: {
+  hero: {
     display: "flex",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 12,
     flexWrap: "wrap",
-    marginBottom: 12,
+    marginBottom: 14,
+    padding: "14px 2px 4px",
   },
 
-  topBtns: { display: "flex", gap: 8, flexWrap: "wrap" },
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 12px",
+    borderRadius: 999,
+    background: "rgba(37,99,235,0.10)",
+    border: "1px solid rgba(37,99,235,0.16)",
+    color: "#1d4ed8",
+    fontSize: 11,
+    fontWeight: 900,
+    marginBottom: 8,
+  },
+
+  h1: {
+    fontSize: "clamp(20px, 2.6vw, 28px)",
+    fontWeight: 900,
+    color: "#0f172a",
+    lineHeight: 1.1,
+  },
+
+  sub: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 700,
+    marginTop: 6,
+    lineHeight: 1.6,
+  },
+
+  topBtns: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+  },
 
   btn: {
-    padding: "9px 11px",
-    borderRadius: 12,
+    padding: "10px 12px",
+    borderRadius: 14,
     border: "1px solid rgba(2,6,23,0.12)",
-    background: "#fff",
+    background: "rgba(255,255,255,0.88)",
     color: "#0f172a",
     fontWeight: 900,
     textDecoration: "none",
     fontSize: 13,
+    boxShadow: "0 8px 18px rgba(2,6,23,0.04)",
   },
+
   btnPrimary: {
-    padding: "9px 11px",
-    borderRadius: 12,
+    padding: "10px 12px",
+    borderRadius: 14,
     border: "none",
-    background: "linear-gradient(135deg,#2563eb,#7c3aed)",
+    background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
     color: "#fff",
     fontWeight: 900,
     textDecoration: "none",
     fontSize: 13,
+    boxShadow: "0 12px 24px rgba(11,94,215,0.18)",
   },
 
-filterBar: {
-  display: "flex",
-  gap: 10,
-  alignItems: "end",
-  flexWrap: "wrap",
-  background: "#fff",
-  border: "1px solid rgba(2,6,23,0.08)",
-  borderRadius: 14,
-  padding: "10px 12px",
-  boxShadow: "0 8px 18px rgba(2,6,23,0.05)",
-  marginBottom: 12,
-},
+  filterBar: {
+    display: "flex",
+    gap: 10,
+    alignItems: "end",
+    flexWrap: "wrap",
+    background: "rgba(255,255,255,0.82)",
+    border: "1px solid rgba(2,6,23,0.08)",
+    borderRadius: 18,
+    padding: "12px 14px",
+    boxShadow: "0 12px 24px rgba(2,6,23,0.05)",
+    backdropFilter: "blur(10px)",
+    marginBottom: 14,
+  },
 
-  field: { display: "grid", gap: 6 },
-  label: { fontSize: 12, fontWeight: 900, color: "#0f172a" },
-input: {
-  width: 150,
-  padding: "7px 8px",
-  borderRadius: 8,
-  border: "1px solid rgba(2,6,23,0.12)",
-  outline: "none",
-  fontSize: 12,
-  background: "#fff",
-  boxSizing: "border-box",
-  fontFamily: "Arial, Helvetica, sans-serif",
-},
-apply: {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "none",
-  background: "linear-gradient(135deg,#2563eb,#7c3aed)",
-  color: "#fff",
-  fontWeight: 700,
-  fontSize: 12,
-  cursor: "pointer",
-},
+  field: {
+    display: "grid",
+    gap: 6,
+  },
+
+  label: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+
+  input: {
+    width: 160,
+    padding: "9px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(2,6,23,0.12)",
+    outline: "none",
+    fontSize: 12,
+    background: "#fff",
+    boxSizing: "border-box",
+    fontFamily: "Arial, Helvetica, sans-serif",
+    color: "#0f172a",
+  },
+
+  apply: {
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "none",
+    background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
+    color: "#fff",
+    fontWeight: 800,
+    fontSize: 12,
+    cursor: "pointer",
+    boxShadow: "0 10px 22px rgba(11,94,215,0.18)",
+  },
 
   err: {
     background: "rgba(239,68,68,0.10)",
@@ -262,22 +350,35 @@ apply: {
 
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
     gap: 12,
   },
 
   card: {
-    background: "#fff",
-    borderRadius: 16,
+    background: "rgba(255,255,255,0.88)",
+    borderRadius: 18,
     border: "1px solid rgba(2,6,23,0.08)",
-    boxShadow: "0 10px 24px rgba(2,6,23,0.06)",
-    padding: 14,
-    minHeight: 96,
+    boxShadow: "0 12px 28px rgba(2,6,23,0.06)",
+    padding: 15,
+    minHeight: 104,
+    backdropFilter: "blur(10px)",
   },
-  cardTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  cardLabel: { fontSize: 12, fontWeight: 900, color: "#334155" },
+
+  cardTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#334155",
+  },
+
   pill: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 900,
     padding: "6px 10px",
     borderRadius: 999,
@@ -285,26 +386,47 @@ apply: {
     background: "rgba(37,99,235,0.10)",
     border: "1px solid rgba(37,99,235,0.16)",
   },
-  cardValue: { marginTop: 10, fontSize: "clamp(18px, 2.2vw, 22px)", fontWeight: 900, color: "#0f172a" },
-  cardHint: { marginTop: 6, fontSize: 12, color: "#64748b", fontWeight: 700 },
+
+  cardValue: {
+    marginTop: 11,
+    fontSize: "clamp(18px, 2.2vw, 24px)",
+    fontWeight: 900,
+    color: "#0f172a",
+    lineHeight: 1.2,
+  },
+
+  cardHint: {
+    marginTop: 7,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+  },
 
   bigCard: {
-    marginTop: 12,
-    background: "#fff",
-    borderRadius: 16,
+    marginTop: 14,
+    background: "rgba(255,255,255,0.88)",
+    borderRadius: 18,
     border: "1px solid rgba(2,6,23,0.08)",
-    boxShadow: "0 10px 24px rgba(2,6,23,0.06)",
-    padding: 14,
+    boxShadow: "0 12px 28px rgba(2,6,23,0.06)",
+    padding: 15,
+    backdropFilter: "blur(10px)",
   },
-  bigTitle: { fontSize: 13, fontWeight: 900, color: "#0f172a", marginBottom: 10 },
+
+  bigTitle: {
+    fontSize: 14,
+    fontWeight: 900,
+    color: "#0f172a",
+    marginBottom: 12,
+  },
 
   quickGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
     gap: 10,
   },
+
   q: {
-    padding: "11px 12px",
+    padding: "12px 12px",
     borderRadius: 14,
     border: "1px solid rgba(2,6,23,0.10)",
     background: "rgba(248,250,252,0.95)",
@@ -313,21 +435,42 @@ apply: {
     textDecoration: "none",
     textAlign: "center",
     fontSize: 13,
+    boxShadow: "0 8px 18px rgba(2,6,23,0.03)",
   },
 
-  // Skeleton
   skeletonGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
     gap: 12,
   },
+
   skelCard: {
     background: "#fff",
-    borderRadius: 16,
+    borderRadius: 18,
     border: "1px solid rgba(2,6,23,0.08)",
     padding: 14,
   },
-  skelLine1: { height: 12, width: "55%", borderRadius: 10, background: "rgba(2,6,23,0.08)" },
-  skelLine2: { height: 22, width: "75%", borderRadius: 10, background: "rgba(2,6,23,0.10)", marginTop: 10 },
-  skelLine3: { height: 12, width: "50%", borderRadius: 10, background: "rgba(2,6,23,0.08)", marginTop: 10 },
+
+  skelLine1: {
+    height: 12,
+    width: "55%",
+    borderRadius: 10,
+    background: "rgba(2,6,23,0.08)",
+  },
+
+  skelLine2: {
+    height: 22,
+    width: "75%",
+    borderRadius: 10,
+    background: "rgba(2,6,23,0.10)",
+    marginTop: 10,
+  },
+
+  skelLine3: {
+    height: 12,
+    width: "50%",
+    borderRadius: 10,
+    background: "rgba(2,6,23,0.08)",
+    marginTop: 10,
+  },
 };

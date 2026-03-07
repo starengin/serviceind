@@ -2,7 +2,9 @@ import axios from "axios";
 
 const base =
   import.meta.env.VITE_API_URL?.trim() ||
-  (import.meta.env.DEV ? "http://localhost:5000" : "https://api.stareng.co.in");
+  (import.meta.env.DEV
+    ? "http://localhost:5000"
+    : "https://api.serviceind.co.in");
 
 const API = axios.create({
   baseURL: base,
@@ -10,8 +12,10 @@ const API = axios.create({
 });
 
 API.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = sessionStorage.getItem("serviceind_admin_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
@@ -22,29 +26,24 @@ async function getData(promise) {
 }
 
 export const api = {
-  // ✅ Admin Auth
+  // Admin Auth
   adminCaptcha: () => getData(API.get("/admin/captcha")),
-
-  // ✅ NEW: Admin Login (NO OTP) — frontend will call this
   adminLogin: (data) => getData(API.post("/admin/login", data)),
 
-  // ✅ Dashboard
+  // Dashboard
   dashboard: (params) => getData(API.get("/dashboard", { params })),
 
-  // ✅ Customers
+  // Customers
   customers: () => getData(API.get("/customers")),
   createCustomer: (data) => getData(API.post("/customers", data)),
   updateCustomer: (id, data) => getData(API.put(`/customers/${id}`, data)),
   deleteCustomer: (id) => getData(API.delete(`/customers/${id}`)),
+  sendCustomerCredentials: (id, password) =>
+    getData(API.post(`/customers/${id}/send-welcome-email`, { password })),
 
-  // ✅ NEW: send credentials email later (backend endpoint needed)
-sendCustomerCredentials: (id, password) =>
-  getData(API.post(`/customers/${id}/send-welcome-email`, { password })),
-
-  // ✅ Transactions
+  // Transactions
   transactions: (params) => getData(API.get("/transactions", { params })),
 
-  // ✅ Create txn (with pdfs)
   createTransaction: (formData) =>
     getData(
       API.post("/transactions", formData, {
@@ -52,16 +51,19 @@ sendCustomerCredentials: (id, password) =>
       })
     ),
 
-  updateTransaction: (id, data) => getData(API.put(`/transactions/${id}`, data)),
-  deleteTransaction: (id) => getData(API.delete(`/transactions/${id}`)),
-    // ✅ resend transaction email later (backend endpoint needed)
+  updateTransaction: (id, data) =>
+    getData(API.put(`/transactions/${id}`, data)),
+
+  deleteTransaction: (id) =>
+    getData(API.delete(`/transactions/${id}`)),
+
   sendTransactionEmail: (id) =>
     getData(API.post(`/transactions/${id}/send-email`)),
 
-  // ✅ Scan PDF
   scanTransactionPDF: (file) => {
     const fd = new FormData();
     fd.append("pdf", file);
+
     return getData(
       API.post("/transactions/scan", fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -69,10 +71,10 @@ sendCustomerCredentials: (id, password) =>
     );
   },
 
-  // ✅ Add / Remove PDFs on existing txn
   addTransactionPDFs: (id, files) => {
     const fd = new FormData();
     for (const f of files) fd.append("pdfs", f);
+
     return getData(
       API.post(`/transactions/${id}/pdfs`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -83,7 +85,7 @@ sendCustomerCredentials: (id, password) =>
   deleteTransactionPDF: (id, pdfId) =>
     getData(API.delete(`/transactions/${id}/pdfs/${pdfId}`)),
 
-  // ✅ Admin Ledger (JSON) — uses existing backend route /ledger/:partyId
+  // Ledger
   adminLedger: (partyId, from, to) =>
     getData(
       API.get(`/ledger/${encodeURIComponent(partyId)}`, {
@@ -91,16 +93,15 @@ sendCustomerCredentials: (id, password) =>
       })
     ),
 
-  // ✅ Admin Ledger PDF — uses existing backend route /ledger/:partyId/pdf
   exportAdminLedgerPdf: (partyId, from, to, token) => {
-    const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
     return `${base}/ledger/${encodeURIComponent(
       partyId
     )}/pdf?from=${encodeURIComponent(from)}&to=${encodeURIComponent(
       to
     )}&token=${encodeURIComponent(token)}`;
   },
-    // ✅ Admin Email Center (send via backend)
+
+  // Admin Email Center
   sendAdminEmail: ({ to, subject, html, mainPdf, extraFiles = [] }) => {
     const fd = new FormData();
     fd.append("to", to);
@@ -116,11 +117,10 @@ sendCustomerCredentials: (id, password) =>
       })
     );
   },
-    // ✅ Email Center
+
   adminLeads: () => getData(API.get("/admin/leads")),
 
   adminSendEmail: (payload) => {
-    // payload: { to, subject, html, mainPdf?: File, extraFiles?: File[] }
     const fd = new FormData();
     fd.append("to", payload.to);
     fd.append("subject", payload.subject);

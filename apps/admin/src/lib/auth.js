@@ -1,12 +1,12 @@
-const TOKEN_KEY = "token";
-const LOGIN_AT_KEY = "admin_login_at";
+const TOKEN_KEY = "serviceind_admin_token";
+const LOGIN_AT_KEY = "serviceind_admin_login_at";
 
 export function getToken() {
   return sessionStorage.getItem(TOKEN_KEY) || "";
 }
 
-export function setToken(t) {
-  if (t) sessionStorage.setItem(TOKEN_KEY, t);
+export function setToken(token) {
+  if (token) sessionStorage.setItem(TOKEN_KEY, token);
   else sessionStorage.removeItem(TOKEN_KEY);
 }
 
@@ -21,4 +21,12 @@ export function markLoginNow() {
 
 export function getLoginAt() {
   return Number(sessionStorage.getItem(LOGIN_AT_KEY) || 0);
+}
+
+export function isAuthed() {
+  return !!getToken();
+}
+
+export function logout() {
+  clearToken();
 }

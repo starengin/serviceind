@@ -4,7 +4,6 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App.jsx";
 
-// ✅ load our CSS (instead of index.css)
 import "./styles/globals.css";
 import "./styles/theme.css";
 

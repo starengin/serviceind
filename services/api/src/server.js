@@ -50,9 +50,19 @@ const pdfParse = typeof pdfParseLib === "function" ? pdfParseLib : pdfParseLib.d
 
 
 dotenv.config();
-const RESEND_FROM = process.env.RESEND_FROM || "noreply@mail.stareng.co.in";
-// better format (recommended):
-const RESEND_FROM_FMT = `donotreply <${RESEND_FROM}>`;
+
+dotenv.config();
+
+const BRAND_NAME = process.env.COMPANY_NAME || "SERVICE INDIA";
+const BRAND_EMAIL = process.env.BRAND_EMAIL || "corporate@serviceind.co.in";
+const BRAND_PHONE = process.env.BRAND_PHONE || "+91-9702485922";
+const BRAND_WEBSITE = process.env.BRAND_WEBSITE || "https://www.serviceind.co.in";
+const BRAND_PORTAL = process.env.LOGIN_URL || "https://portal.serviceind.co.in";
+const BRAND_LOGO_URL =
+  process.env.MAIL_LOGO_URL || "https://www.serviceind.co.in/brand/logo.jpg";
+
+const RESEND_FROM = process.env.RESEND_FROM || "noreply@mail.serviceind.co.in";
+const RESEND_FROM_FMT = `${BRAND_NAME} <${RESEND_FROM}>`;
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -117,85 +127,76 @@ const smtp = nodemailer.createTransport({
 // });
 
 function welcomeEmailHTML({ name, email, password }) {
-  const company = process.env.COMPANY_NAME || "STAR ENGINEERING";
-  const loginUrl = process.env.LOGIN_URL || "https://www.stareng.co.in/login";
-  const logoUrl =
-    process.env.MAIL_LOGO_URL ||
-    "https://docs5.odoo.com/documents/content/Zir5Nx_CQDG3RHRyCDjt9gof5?download=0";
+const company = BRAND_NAME;
+const loginUrl = BRAND_PORTAL;
+const logoUrl = BRAND_LOGO_URL;
 
-  const party = name || "Customer";
-const passwordRow = password
-  ? `
-    <tr style="background:linear-gradient(90deg,#fff6ec,#ffffff);">
-      <td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Password</b></td>
-      <td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">
-        <span style="font-weight:bold;color:#7a0000;">${password}</span>
-      </td>
-    </tr>`
-  : ``;
+  const party = esc(name || "Customer");
+  const safeEmail = esc(email || "-");
+  const safePassword = esc(password || "-");
+  const safeLoginUrl = esc(loginUrl);
+
   return `
-<table align="center" width="100%" cellpadding="0" cellspacing="0" style="
-  max-width:600px;
-  margin:30px auto;
-  border-radius:16px;
-  overflow:hidden;
-  font-family:Arial,Helvetica,sans-serif;
-  background:
-    radial-gradient(900px 420px at 15% 0%, rgba(255,0,102,0.16), transparent 60%),
-    radial-gradient(760px 380px at 95% 18%, rgba(0,102,255,0.15), transparent 55%),
-    radial-gradient(920px 520px at 80% 110%, rgba(255,170,0,0.16), transparent 60%),
-    radial-gradient(820px 420px at 52% 105%, rgba(163,0,255,0.12), transparent 65%),
-    linear-gradient(145deg,#fbfcff,#f2f6ff,#ffffff);
-  box-shadow: 0 24px 60px rgba(17,24,39,0.24), 0 10px 24px rgba(17,24,39,0.12);
+<table align="center" width="100%" cellpadding="0" cellspacing="0"
+style="
+max-width:600px;
+margin:30px auto;
+border-radius:16px;
+overflow:hidden;
+font-family:Arial,Helvetica,sans-serif;
+background:
+radial-gradient(900px 420px at 15% 0%, rgba(0,123,255,0.16), transparent 60%),
+radial-gradient(700px 360px at 95% 18%, rgba(255,140,0,0.14), transparent 55%),
+radial-gradient(900px 480px at 80% 110%, rgba(0,170,255,0.14), transparent 60%),
+linear-gradient(145deg,#f7f8fb,#eef1f6,#ffffff);
+box-shadow:
+0 18px 40px rgba(17,24,39,0.18),
+0 6px 14px rgba(17,24,39,0.10);
 ">
   <tbody>
-
-    <!-- HEADER -->
     <tr>
       <td style="
-        background:
-          radial-gradient(900px 260px at 18% 0%, rgba(255,220,160,0.18), transparent 55%),
-          linear-gradient(135deg,#3b0000,#6a0000,#9a0000,#a100ff,#ff0066,#ff7a00);
+        background:linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00);
         padding:22px 24px;
         color:#ffffff;
-        box-shadow: inset 0 -10px 20px rgba(0,0,0,0.30), 0 10px 22px rgba(0,0,0,0.18);
+        position:relative;
+        box-shadow: inset 0 -6px 14px rgba(0,0,0,0.22);
       ">
         <div style="
           height:4px;
-          background:linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,232,190,0.58), rgba(255,255,255,0.10));
+          background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.40),rgba(255,255,255,0.06));
           border-radius:999px;
           margin-bottom:14px;
-          box-shadow:0 2px 10px rgba(0,0,0,0.25);
         "></div>
 
         <table width="100%" cellpadding="0" cellspacing="0">
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="${logoUrl}" alt="STAR ENGINEERING" style="
-                  max-width:80px;
-                  display:block;
-                  border-radius:10px;
-                  box-shadow:0 14px 26px rgba(0,0,0,0.35);
-                  border:1px solid rgba(255,232,190,0.45);
-                ">
+                <img src="${logoUrl}"
+                     alt="${company}"
+                     style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
               <td valign="middle" style="padding-left:12px;">
                 <h1 style="
                   margin:0;
-                  font-size:22px;
+                  font-size:20px;
                   letter-spacing:1px;
                   color:#ffffff;
                   font-weight:bold;
-                  text-shadow:0 4px 14px rgba(0,0,0,0.50);
-                ">STAR ENGINEERING</h1>
+                  text-shadow:0 3px 10px rgba(0,0,0,0.35);
+                ">
+                  ${company}
+                </h1>
                 <p style="
                   margin:6px 0 0 0;
-                  font-size:15px;
-                  color:#fff1f7;
+                  font-size:14px;
+                  color:#eef8ff;
                   font-weight:bold;
-                  text-shadow:0 3px 12px rgba(0,0,0,0.45);
-                ">Customer Portal Access</p>
+                  text-shadow:0 2px 8px rgba(0,0,0,0.30);
+                ">
+                  Customer Portal Access
+                </p>
               </td>
             </tr>
           </tbody>
@@ -203,52 +204,53 @@ const passwordRow = password
       </td>
     </tr>
 
-    <!-- BODY -->
     <tr>
-      <td style="padding:0">
-        <div style="
-          padding:22px 20px 18px 20px;
-          color:#111827;
-          background:
-            radial-gradient(900px 260px at 12% 0%, rgba(255,170,0,0.12), transparent 60%),
-            radial-gradient(820px 240px at 88% 0%, rgba(163,0,255,0.10), transparent 60%),
-            linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82));
-          border-top:1px solid rgba(255,232,190,0.35);
-        ">
-          <p style="font-size:16px; margin:0 0 12px 0;">
-            Dear <b>${party}</b>,<br>
+      <td style="padding:0;">
+        <div style="padding:22px 20px 18px 20px; color:#111827;">
+          <p style="font-size:15px;margin:0 0 12px 0;">
+            Dear <b>${party}</b>,
           </p>
 
-          <p style="font-size:15px; line-height:1.8; margin:0 0 18px 0; color:#1f2937;">
-            Greetings from <b>STAR ENGINEERING</b>.<br>
-            Your User portal account has been successfully created. Please use the credentials below to login.
+          <p style="font-size:14px;line-height:1.75;margin:0 0 18px 0;color:#1f2937;">
+            Greetings from <b>${company}</b>.<br>
+            Your portal account has been successfully created. Please use the details below to login.
           </p>
 
-          <!-- SUMMARY TABLE -->
           <div style="
             border-radius:12px;
             overflow:hidden;
-            border:1px solid rgba(255,232,190,0.55);
-            box-shadow: 0 16px 30px rgba(17,24,39,0.14), inset 0 1px 0 rgba(255,255,255,0.78);
-            background:linear-gradient(180deg,rgba(255,255,255,0.95),rgba(255,255,255,0.88));
+            border:1px solid rgba(17,24,39,0.08);
+            box-shadow:0 10px 18px rgba(17,24,39,0.08);
+            background:#ffffff;
           ">
-            <table width="100%" cellpadding="10" cellspacing="0" style="font-size:15px;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="font-size:14px;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
               <tbody>
-                <tr style="background:linear-gradient(90deg,#fff0f0,#ffffff);">
-                  <td width="45%" style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Login Email</b></td>
-                  <td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">${email}</td>
-                </tr>
-                <tr style="background:linear-gradient(90deg,#fff6ec,#ffffff);">
-                  <td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Password</b></td>
-                  <td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">
-                    <span style="font-weight:bold;color:#7a0000;">${password}</span>
+                <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
+                  <td width="45%" style="padding:12px 14px;border-bottom:1px solid #eeeeee;color:#111827;">
+                    <b>Login Email</b>
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;color:#111827;">
+                    ${safeEmail}
                   </td>
                 </tr>
-                <tr style="background:linear-gradient(90deg,#ffffff,#ffffff);">
-                  <td style="padding:12px 14px;"><b>Portal Link</b></td>
+
+                <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">
+                    <b>Password</b>
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">
+                    <span style="font-weight:bold;color:#0b5ed7;">${safePassword}</span>
+                  </td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
                   <td style="padding:12px 14px;">
-                    <a href="${loginUrl}" target="_blank" style="color:#a100ff;text-decoration:none;font-weight:bold;">
-                      ${loginUrl}
+                    <b>Portal Link</b>
+                  </td>
+                  <td style="padding:12px 14px; word-break:break-word;">
+                    <a href="${safeLoginUrl}" target="_blank" style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
+                      ${safeLoginUrl}
                     </a>
                   </td>
                 </tr>
@@ -256,11 +258,10 @@ const passwordRow = password
             </table>
           </div>
 
-          <!-- CTA BUTTON -->
           <div style="margin-top:18px; text-align:center;">
-            <a href="${loginUrl}" target="_blank" style="
+            <a href="${safeLoginUrl}" target="_blank" style="
               display:inline-block;
-              background:linear-gradient(135deg,#3b0000,#a100ff,#ff0066,#ff7a00);
+              background:linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00);
               color:#ffffff;
               padding:12px 18px;
               text-decoration:none;
@@ -268,99 +269,59 @@ const passwordRow = password
               font-size:14px;
               font-weight:bold;
               box-shadow:0 10px 22px rgba(0,0,0,0.20);
-              border:1px solid rgba(255,232,190,0.35);
             ">Login to Portal →</a>
           </div>
 
-          <!-- SUPPORT BOX -->
           <div style="
             margin-top:18px;
             padding:16px;
             border-radius:12px;
             background:
-              radial-gradient(700px 180px at 15% 0%, rgba(255,0,102,0.12), transparent 55%),
-              radial-gradient(760px 200px at 95% 0%, rgba(0,102,255,0.10), transparent 60%),
-              linear-gradient(180deg,#ffffff,#fff7fb);
-            border:1px dashed rgba(255,170,0,0.70);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.78);
+              radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.10), transparent 55%),
+              linear-gradient(180deg,#ffffff,#f2f8ff);
+            border:1px dashed rgba(11,94,215,0.55);
           ">
-            <p style="font-size:15px;line-height:1.75;margin:0;color:#1f2937;">
+            <p style="font-size:14px;line-height:1.65;margin:0;color:#1f2937;">
               For any clarification, please contact our team at
-              <a href="mailto:corporate@stareng.co.in" style="color:#a100ff;text-decoration:none;font-weight:bold;" target="_blank">
-                corporate@stareng.co.in
+              <a href="mailto:corporate@serviceind.co.in" style="color:#0b5ed7;text-decoration:none;font-weight:bold;" target="_blank">
+                corporate@serviceind.co.in
               </a>
             </p>
 
-            <p style="font-size:15px;margin:16px 0 0 0;color:#1f2937;">
+            <p style="font-size:14px;margin:16px 0 0 0;color:#1f2937;">
               Warm Regards,<br>
-              <b>STAR ENGINEERING</b><br>
-              📧 <a target="_blank" href="mailto:corporate@stareng.co.in" style="color:#a100ff;text-decoration:none;font-weight:bold;">
-                corporate@stareng.co.in
+              <b>${company}</b><br>
+              📧 <a target="_blank" href="mailto:corporate@serviceind.co.in" style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
+                corporate@serviceind.co.in
               </a><br>
-              🌐 <a href="https://www.stareng.co.in" style="color:#a100ff;text-decoration:none;font-weight:bold;" target="_blank">
-                www.stareng.co.in
+              📞 <a target="_blank" href="tel:+919702485922" style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
+                +91-9702485922
               </a>
             </p>
           </div>
-
         </div>
       </td>
     </tr>
 
-    <!-- FOOTER -->
     <tr>
       <td style="
-        background:
-          radial-gradient(900px 220px at 20% 0%, rgba(255,0,102,0.10), transparent 60%),
-          radial-gradient(900px 220px at 80% 0%, rgba(0,102,255,0.10), transparent 60%),
-          linear-gradient(180deg,#f4f4f6,#efeff2);
+        background:linear-gradient(180deg,#f4f4f6,#efeff2);
         padding:16px;
         text-align:center;
         font-size:12px;
         color:#6b7280;
         border-top:1px solid rgba(17,24,39,0.08);
       ">
-        <div style="font-weight:bold; color:#111827; margin-bottom:6px;">
-          This is a system-generated email. Please do not reply to this email.
-        </div>
-
-        <div style="
-          height:2px;
-          width:160px;
-          margin:10px auto;
-          border-radius:999px;
-          background:linear-gradient(90deg, rgba(161,0,255,0.25), rgba(255,122,0,0.35), rgba(0,102,255,0.25));
-        "></div>
-
-        <div style="line-height:1.7;">
-          📧 <a target="_blank" href="mailto:corporate@stareng.co.in" style="color:#a100ff;text-decoration:none;font-weight:bold;">
-            corporate@stareng.co.in
-          </a><br>
-          💬 <a target="_blank" href="https://wa.me/917045276723" style="color:#111827;text-decoration:none;font-weight:bold;">
-            WhatsApp: +91-7045276723
-          </a><br>
-          🌐 <a href="https://www.stareng.co.in" style="color:#111827;text-decoration:none;font-weight:bold;" target="_blank">
-            www.stareng.co.in
-          </a>
-        </div>
-
-        <div style="
-          height:2px;
-          width:160px;
-          margin:10px auto;
-          border-radius:999px;
-          background:linear-gradient(90deg, rgba(161,0,255,0.25), rgba(255,122,0,0.35), rgba(0,102,255,0.25));
-        "></div>
-
-        <div style="margin-top:6px; line-height:1.7;">
-          Terms &amp; Conditions:
-          <a href="https://www.stareng.co.in/terms" style="color:#6b7280; text-decoration:none;" target="_blank">
-            www.stareng.co.in/terms
-          </a>
+        <div>
+          This is a system-generated email. Replies to this message will be received at
+          <b>
+            <a target="_blank" href="mailto:corporate@serviceind.co.in" style="color:#6b7280;text-decoration:none;">
+              corporate@serviceind.co.in
+            </a>
+          </b>
         </div>
       </td>
     </tr>
-
   </tbody>
 </table>
 `;
@@ -368,12 +329,10 @@ const passwordRow = password
 
 // ✅ Corporate inquiry email (premium)
 function contactInquiryEmailHTML({
-  name, company, phone, email, city, material, details, preferred, subject, page,
+  name, company, phone, email, city, workType, details, preferred, subject, page,
 }) {
-  const companyName = process.env.COMPANY_NAME || "STAR ENGINEERING";
-  const logoUrl =
-    process.env.MAIL_LOGO_URL ||
-    "https://docs5.odoo.com/documents/content/Zir5Nx_CQDG3RHRyCDjt9gof5?download=0";
+  const companyName = BRAND_NAME;
+const logoUrl = BRAND_LOGO_URL;
 
   const safe = {
     name: esc(name || "-"),
@@ -381,178 +340,383 @@ function contactInquiryEmailHTML({
     phone: esc(phone || "-"),
     email: esc(email || "-"),
     city: esc(city || "-"),
-    material: esc(material || "ALL"),
+    workType: esc(workType || "ALL"),
     details: esc(details || "-"),
     preferred: esc(preferred || "Call"),
-    subject: esc(subject || "Requirement Enquiry"),
+    subject: esc(subject || "Work Requirement Enquiry"),
     page: esc(page || "-"),
   };
 
   return `
-${/* same template but with bigger fonts */""}
-<table align="center" width="100%" cellpadding="0" cellspacing="0" style=" max-width:600px; margin:30px auto; border-radius:16px; overflow:hidden; font-family:Arial,Helvetica,sans-serif;
-background: radial-gradient(900px 420px at 15% 0%, rgba(255,0,102,0.16), transparent 60%),
-radial-gradient(760px 380px at 95% 18%, rgba(0,102,255,0.15), transparent 55%),
-radial-gradient(920px 520px at 80% 110%, rgba(255,170,0,0.16), transparent 60%),
-radial-gradient(820px 420px at 52% 105%, rgba(163,0,255,0.12), transparent 65%),
-linear-gradient(145deg,#fbfcff,#f2f6ff,#ffffff);
-box-shadow: 0 24px 60px rgba(17,24,39,0.24), 0 10px 24px rgba(17,24,39,0.12); ">
+<table align="center" width="100%" cellpadding="0" cellspacing="0"
+style="
+max-width:600px;
+margin:30px auto;
+border-radius:16px;
+overflow:hidden;
+font-family:Arial,Helvetica,sans-serif;
+background:
+radial-gradient(900px 420px at 15% 0%, rgba(0,123,255,0.16), transparent 60%),
+radial-gradient(700px 360px at 95% 18%, rgba(255,140,0,0.14), transparent 55%),
+radial-gradient(900px 480px at 80% 110%, rgba(0,170,255,0.14), transparent 60%),
+linear-gradient(145deg,#f7f8fb,#eef1f6,#ffffff);
+box-shadow:
+0 18px 40px rgba(17,24,39,0.18),
+0 6px 14px rgba(17,24,39,0.10);
+">
   <tbody>
     <tr>
-      <td style=" background: radial-gradient(900px 260px at 18% 0%, rgba(255,220,160,0.18), transparent 55%),
-      linear-gradient(135deg,#3b0000,#6a0000,#9a0000,#a100ff,#ff0066,#ff7a00);
-      padding:22px 24px; color:#ffffff;
-      box-shadow: inset 0 -10px 20px rgba(0,0,0,0.30), 0 10px 22px rgba(0,0,0,0.18); ">
-        <div style="height:4px;background:linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,232,190,0.58), rgba(255,255,255,0.10)); border-radius:999px; margin-bottom:14px;"></div>
+      <td style="
+        background:linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00);
+        padding:22px 24px;
+        color:#ffffff;
+        position:relative;
+        box-shadow: inset 0 -6px 14px rgba(0,0,0,0.22);
+      ">
+        <div style="
+          height:4px;
+          background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.40),rgba(255,255,255,0.06));
+          border-radius:999px;
+          margin-bottom:14px;
+        "></div>
+
         <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="100" valign="middle">
-              <img src="${logoUrl}" alt="${companyName}" style="max-width:80px; display:block; border-radius:10px; box-shadow:0 14px 26px rgba(0,0,0,0.35); border:1px solid rgba(255,232,190,0.45);">
-            </td>
-            <td valign="middle" style="padding-left:12px;">
-              <h1 style="margin:0; font-size:22px; letter-spacing:1px; color:#ffffff; font-weight:bold;">${companyName}</h1>
-              <p style="margin:6px 0 0 0; font-size:15px; color:#fff1f7; font-weight:bold;">New Requirement / Inquiry</p>
-            </td>
-          </tr>
+          <tbody>
+            <tr>
+              <td width="100" valign="middle">
+                <img src="${logoUrl}"
+                     alt="${companyName}"
+                     style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
+              </td>
+              <td valign="middle" style="padding-left:12px;">
+                <h1 style="
+                  margin:0;
+                  font-size:20px;
+                  letter-spacing:1px;
+                  color:#ffffff;
+                  font-weight:bold;
+                  text-shadow:0 3px 10px rgba(0,0,0,0.35);
+                ">
+                  ${companyName}
+                </h1>
+                <p style="
+                  margin:6px 0 0 0;
+                  font-size:14px;
+                  color:#eef8ff;
+                  font-weight:bold;
+                  text-shadow:0 2px 8px rgba(0,0,0,0.30);
+                ">
+                  New Requirement Received
+                </p>
+              </td>
+            </tr>
+          </tbody>
         </table>
       </td>
     </tr>
 
     <tr>
-      <td style="padding:0">
-        <div style="padding:22px 20px 18px 20px; color:#111827; background:
-          radial-gradient(900px 260px at 12% 0%, rgba(255,170,0,0.12), transparent 60%),
-          radial-gradient(820px 240px at 88% 0%, rgba(163,0,255,0.10), transparent 60%),
-          linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82));
-          border-top:1px solid rgba(255,232,190,0.35);">
-
-          <p style="font-size:16px; margin:0 0 12px 0;">
-            Hello Team,<br><b>New inquiry received from website.</b>
+      <td style="padding:0;">
+        <div style="padding:22px 20px 18px 20px; color:#111827;">
+          <p style="font-size:15px;margin:0 0 12px 0;">
+            Hello Team,
           </p>
 
-          <p style="font-size:15px; line-height:1.8; margin:0 0 18px 0; color:#1f2937;">
-            Subject: <b>${safe.subject}</b><br>
-            Please contact the customer as per preference.
+          <p style="font-size:14px;line-height:1.75;margin:0 0 18px 0;color:#1f2937;">
+            A new work enquiry has been received from the website. Please review the details below and respond as per the preferred contact mode.
           </p>
 
-          <div style="border-radius:12px; overflow:hidden; border:1px solid rgba(255,232,190,0.55);
-            box-shadow: 0 16px 30px rgba(17,24,39,0.14), inset 0 1px 0 rgba(255,255,255,0.78);
-            background:linear-gradient(180deg,rgba(255,255,255,0.95),rgba(255,255,255,0.88));">
-            <table width="100%" cellpadding="10" cellspacing="0" style="font-size:15px; font-family:Arial,Helvetica,sans-serif; border-collapse:collapse;">
+          <div style="
+            border-radius:12px;
+            overflow:hidden;
+            border:1px solid rgba(17,24,39,0.08);
+            box-shadow:0 10px 18px rgba(17,24,39,0.08);
+            background:#ffffff;
+          ">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="font-size:14px;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
               <tbody>
-                <tr style="background:linear-gradient(90deg,#fff0f0,#ffffff);"><td width="45%" style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Name</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">${safe.name}</td></tr>
-                <tr style="background:#fff;"><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Company</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">${safe.company}</td></tr>
-                <tr style="background:linear-gradient(90deg,#eef4ff,#ffffff);"><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Phone</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>${safe.phone}</b></td></tr>
-                <tr style="background:linear-gradient(90deg,#fff6ec,#ffffff);"><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Email</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">${safe.email}</td></tr>
-                <tr style="background:#fff;"><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>City / Location</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">${safe.city}</td></tr>
-                <tr style="background:linear-gradient(90deg,#fff0f0,#ffffff);"><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Material</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><span style="font-weight:bold;color:#7a0000;">${safe.material}</span></td></tr>
-                <tr style="background:linear-gradient(90deg,#f6f0ff,#ffffff);"><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);"><b>Preferred Contact</b></td><td style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,0.08);">${safe.preferred}</td></tr>
-                <tr style="background:#fff;"><td style="padding:12px 14px;"><b>Requirement Details</b></td><td style="padding:12px 14px; line-height:1.8;">${safe.details}</td></tr>
+                <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
+                  <td width="45%" style="padding:12px 14px;border-bottom:1px solid #eeeeee;color:#111827;">
+                    <b>Subject</b>
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;color:#111827;">
+                    ${safe.subject}
+                  </td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Name</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${safe.name}</td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Company</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${safe.company}</td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Phone</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><span style="font-weight:bold;color:#0b5ed7;">${safe.phone}</span></td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Email</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${safe.email}</td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>City / Location</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${safe.city}</td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Work Type</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${safe.workType}</td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Preferred Contact</b></td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${safe.preferred}</td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
+                  <td style="padding:12px 14px;"><b>Requirement Details</b></td>
+                  <td style="padding:12px 14px; line-height:1.8;">${safe.details}</td>
+                </tr>
               </tbody>
             </table>
           </div>
 
-          <div style="margin-top:16px; padding:16px; border-radius:12px; background:linear-gradient(180deg,#ffffff,#fff7fb);
-          border:1px dashed rgba(255,170,0,0.70);">
-            <p style="font-size:14px; margin:0; color:#1f2937;"><b>Page Source:</b> <span style="color:#6b7280;">${safe.page}</span></p>
+          <div style="
+            margin-top:18px;
+            padding:16px;
+            border-radius:12px;
+            background:
+              radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.10), transparent 55%),
+              linear-gradient(180deg,#ffffff,#f2f8ff);
+            border:1px dashed rgba(11,94,215,0.55);
+          ">
+            <p style="font-size:14px;line-height:1.65;margin:0;color:#1f2937;">
+              <b>Page Source:</b> ${safe.page}
+            </p>
           </div>
 
           <div style="margin-top:18px; text-align:center;">
-            <a href="https://wa.me/917045276723" target="_blank" style="display:inline-block;
-              background:linear-gradient(135deg,#3b0000,#a100ff,#ff0066,#ff7a00);
-              color:#ffffff; padding:12px 18px; text-decoration:none; border-radius:999px;
-              font-size:14px; font-weight:bold; box-shadow:0 10px 22px rgba(0,0,0,0.20);
-              border:1px solid rgba(255,232,190,0.35);">Open WhatsApp →</a>
+            <a href="https://wa.me/919702485922" target="_blank" style="
+              display:inline-block;
+              background:linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00);
+              color:#ffffff;
+              padding:12px 18px;
+              text-decoration:none;
+              border-radius:999px;
+              font-size:14px;
+              font-weight:bold;
+              box-shadow:0 10px 22px rgba(0,0,0,0.20);
+            ">Open WhatsApp →</a>
           </div>
-
         </div>
       </td>
     </tr>
 
     <tr>
-      <td style="background:linear-gradient(180deg,#f4f4f6,#efeff2); padding:16px; text-align:center; font-size:12px; color:#6b7280; border-top:1px solid rgba(17,24,39,0.08);">
-        <div style="font-weight:bold; color:#111827; margin-bottom:6px;">System-generated inquiry email. Please do not reply.</div>
-        <div style="line-height:1.7;">
-          📧 <a target="_blank" href="mailto:corporate@stareng.co.in" style="color:#a100ff;text-decoration:none;font-weight:bold;">corporate@stareng.co.in</a><br>
-          📞 <a href="tel:+919702485922" style="color:#111827;text-decoration:none;font-weight:bold;">Call Now: +91-9702485922</a><br>
-          💬 <a target="_blank" href="https://wa.me/917045276723" style="color:#111827;text-decoration:none;font-weight:bold;">WhatsApp: +91-7045276723</a>
+      <td style="
+        background:linear-gradient(180deg,#f4f4f6,#efeff2);
+        padding:16px;
+        text-align:center;
+        font-size:12px;
+        color:#6b7280;
+        border-top:1px solid rgba(17,24,39,0.08);
+      ">
+        <div>
+          System-generated enquiry email. Please review and respond from
+          <b>
+            <a target="_blank" href="mailto:corporate@serviceind.co.in" style="color:#6b7280;text-decoration:none;">
+              corporate@serviceind.co.in
+            </a>
+          </b>
         </div>
       </td>
     </tr>
   </tbody>
-</table>`;
+</table>
+`;
 }
 
 // ✅ Customer ack email (premium)
 function contactCustomerAckEmailHTML({ name, subject }) {
-  const companyName = process.env.COMPANY_NAME || "STAR ENGINEERING";
-  const logoUrl =
-    process.env.MAIL_LOGO_URL ||
-    "https://docs5.odoo.com/documents/content/Zir5Nx_CQDG3RHRyCDjt9gof5?download=0";
+const companyName = BRAND_NAME;
+const logoUrl = BRAND_LOGO_URL;
 
   const safeName = esc(name || "Customer");
-  const safeSubject = esc(subject || "Requirement Enquiry");
+  const safeSubject = esc(subject || "Work Requirement Enquiry");
 
   return `
-<table align="center" width="100%" cellpadding="0" cellspacing="0" style=" max-width:600px; margin:30px auto; border-radius:16px; overflow:hidden; font-family:Arial,Helvetica,sans-serif;
-background: radial-gradient(900px 420px at 15% 0%, rgba(255,0,102,0.16), transparent 60%),
-radial-gradient(760px 380px at 95% 18%, rgba(0,102,255,0.15), transparent 55%),
-radial-gradient(920px 520px at 80% 110%, rgba(255,170,0,0.16), transparent 60%),
-radial-gradient(820px 420px at 52% 105%, rgba(163,0,255,0.12), transparent 65%),
-linear-gradient(145deg,#fbfcff,#f2f6ff,#ffffff);
-box-shadow: 0 24px 60px rgba(17,24,39,0.24), 0 10px 24px rgba(17,24,39,0.12); ">
+<table align="center" width="100%" cellpadding="0" cellspacing="0"
+style="
+max-width:600px;
+margin:30px auto;
+border-radius:16px;
+overflow:hidden;
+font-family:Arial,Helvetica,sans-serif;
+background:
+radial-gradient(900px 420px at 15% 0%, rgba(0,123,255,0.16), transparent 60%),
+radial-gradient(700px 360px at 95% 18%, rgba(255,140,0,0.14), transparent 55%),
+radial-gradient(900px 480px at 80% 110%, rgba(0,170,255,0.14), transparent 60%),
+linear-gradient(145deg,#f7f8fb,#eef1f6,#ffffff);
+box-shadow:
+0 18px 40px rgba(17,24,39,0.18),
+0 6px 14px rgba(17,24,39,0.10);
+">
   <tbody>
     <tr>
-      <td style="background:linear-gradient(135deg,#3b0000,#6a0000,#9a0000,#a100ff,#ff0066,#ff7a00); padding:22px 24px; color:#ffffff;">
+      <td style="
+        background:linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00);
+        padding:22px 24px;
+        color:#ffffff;
+        position:relative;
+        box-shadow: inset 0 -6px 14px rgba(0,0,0,0.22);
+      ">
+        <div style="
+          height:4px;
+          background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.40),rgba(255,255,255,0.06));
+          border-radius:999px;
+          margin-bottom:14px;
+        "></div>
+
         <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="100" valign="middle">
-              <img src="${logoUrl}" alt="${companyName}" style="max-width:80px; display:block; border-radius:10px; border:1px solid rgba(255,232,190,0.45);">
-            </td>
-            <td valign="middle" style="padding-left:12px;">
-              <h1 style="margin:0; font-size:22px; letter-spacing:1px; color:#ffffff; font-weight:bold;">${companyName}</h1>
-              <p style="margin:6px 0 0 0; font-size:15px; color:#fff1f7; font-weight:bold;">Requirement Received</p>
-            </td>
-          </tr>
+          <tbody>
+            <tr>
+              <td width="100" valign="middle">
+                <img src="${logoUrl}"
+                     alt="${companyName}"
+                     style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
+              </td>
+              <td valign="middle" style="padding-left:12px;">
+                <h1 style="
+                  margin:0;
+                  font-size:20px;
+                  letter-spacing:1px;
+                  color:#ffffff;
+                  font-weight:bold;
+                  text-shadow:0 3px 10px rgba(0,0,0,0.35);
+                ">
+                  ${companyName}
+                </h1>
+                <p style="
+                  margin:6px 0 0 0;
+                  font-size:14px;
+                  color:#eef8ff;
+                  font-weight:bold;
+                  text-shadow:0 2px 8px rgba(0,0,0,0.30);
+                ">
+                  Requirement Received
+                </p>
+              </td>
+            </tr>
+          </tbody>
         </table>
       </td>
     </tr>
 
     <tr>
-      <td style="padding:0">
-        <div style="padding:22px 20px 18px 20px; background:linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82));">
-          <p style="font-size:16px; margin:0 0 12px 0;">Dear <b>${safeName}</b>,</p>
-          <p style="font-size:15px; line-height:1.8; margin:0 0 14px 0; color:#1f2937;">
-            Thank you! We received your requirement (<b>${safeSubject}</b>). Our team will contact you shortly.
+      <td style="padding:0;">
+        <div style="padding:22px 20px 18px 20px; color:#111827;">
+          <p style="font-size:15px;margin:0 0 12px 0;">
+            Dear <b>${safeName}</b>,
           </p>
 
-          <div style="margin-top:14px; padding:16px; border-radius:12px; background:linear-gradient(180deg,#ffffff,#fff7fb); border:1px dashed rgba(255,170,0,0.70);">
-            <p style="font-size:15px; margin:0; color:#1f2937;">
-              For faster processing, please call Sales:
-              <b> +91-7045276723</b> (8:30 am to 7:30 pm)
-            </p>
+          <p style="font-size:14px;line-height:1.75;margin:0 0 18px 0;color:#1f2937;">
+            Thank you for contacting <b>${companyName}</b>.<br>
+            We have received your requirement regarding <b>${safeSubject}</b>. Our team will review it and contact you shortly.
+          </p>
+
+          <div style="
+            border-radius:12px;
+            overflow:hidden;
+            border:1px solid rgba(17,24,39,0.08);
+            box-shadow:0 10px 18px rgba(17,24,39,0.08);
+            background:#ffffff;
+          ">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="font-size:14px;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
+              <tbody>
+                <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
+                  <td width="45%" style="padding:12px 14px;border-bottom:1px solid #eeeeee;color:#111827;">
+                    <b>Status</b>
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;color:#111827;">
+                    Requirement Received Successfully
+                  </td>
+                </tr>
+
+                <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
+                  <td style="padding:12px 14px;">
+                    <b>Reference</b>
+                  </td>
+                  <td style="padding:12px 14px;">
+                    ${safeSubject}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          <div style="margin-top:18px; text-align:center;">
-            <a href="tel:+917045276723" style="display:inline-block; background:linear-gradient(135deg,#3b0000,#a100ff,#ff0066,#ff7a00);
-            color:#fff; padding:12px 18px; border-radius:999px; text-decoration:none; font-weight:bold;">Call Sales →</a>
+          <div style="
+            margin-top:18px;
+            padding:16px;
+            border-radius:12px;
+            background:
+              radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.10), transparent 55%),
+              linear-gradient(180deg,#ffffff,#f2f8ff);
+            border:1px dashed rgba(11,94,215,0.55);
+          ">
+            <p style="font-size:14px;line-height:1.65;margin:0;color:#1f2937;">
+              For urgent discussion, please contact us at
+              <a href="mailto:corporate@serviceind.co.in" style="color:#0b5ed7;text-decoration:none;font-weight:bold;" target="_blank">
+                corporate@serviceind.co.in
+              </a>
+              or call
+              <b> +91-9702485922</b>.
+            </p>
+
+            <p style="font-size:14px;margin:16px 0 0 0;color:#1f2937;">
+              Warm Regards,<br>
+              <b>${companyName}</b><br>
+              📧 <a target="_blank" href="mailto:corporate@serviceind.co.in" style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
+                corporate@serviceind.co.in
+              </a><br>
+              📞 <a target="_blank" href="tel:+919702485922" style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
+                +91-9702485922
+              </a>
+            </p>
           </div>
         </div>
       </td>
     </tr>
 
     <tr>
-      <td style="background:linear-gradient(180deg,#f4f4f6,#efeff2); padding:16px; text-align:center; font-size:12px; color:#6b7280;">
-        <div style="font-weight:bold; color:#111827; margin-bottom:6px;">This is a system-generated email. Please do not reply.</div>
-        <div style="line-height:1.7;">
-          📧 <a target="_blank" href="mailto:corporate@stareng.co.in" style="color:#a100ff;text-decoration:none;font-weight:bold;">corporate@stareng.co.in</a><br>
-          💬 <a target="_blank" href="https://wa.me/917045276723" style="color:#111827;text-decoration:none;font-weight:bold;">WhatsApp: +91-7045276723</a><br>
-          🌐 <a href="https://www.stareng.co.in" style="color:#111827;text-decoration:none;font-weight:bold;" target="_blank">www.stareng.co.in</a>
+      <td style="
+        background:linear-gradient(180deg,#f4f4f6,#efeff2);
+        padding:16px;
+        text-align:center;
+        font-size:12px;
+        color:#6b7280;
+        border-top:1px solid rgba(17,24,39,0.08);
+      ">
+        <div>
+          This is a system-generated email. Replies to this message will be received at
+          <b>
+            <a target="_blank" href="mailto:corporate@serviceind.co.in" style="color:#6b7280;text-decoration:none;">
+              corporate@serviceind.co.in
+            </a>
+          </b>
         </div>
       </td>
     </tr>
   </tbody>
-</table>`;
+</table>
+`;
 }
 function esc(s = "") {
   return String(s)
@@ -603,7 +767,7 @@ else if (type === "SALES_RETURN") template = CREDIT_NOTE_TEMPLATE;     // Credit
   if (!template || !template.trim()) {
     return `
       <div style="font-family:Arial">
-        <h2>STAR Engineering</h2>
+        <h2>SERVICE INDIA</h2>
         <p>Party: <b>${party?.name || ""}</b></p>
         <p>Voucher: <b>${meta?.voucherNo || ""}</b></p>
         <p>Date: <b>${meta?.date || ""}</b></p>
@@ -668,14 +832,14 @@ amount: meta?.amount || meta?.total_amount || meta?.invoice_amt || "",
 
 function subjectForType(type, meta) {
   const v = meta?.voucherNo || meta?.invoice_no || "";
-  if (type === "SALE") return `Sales Invoice ${v} - STAR Engineering`;
-  if (type === "PURCHASE") return `Purchase Invoice ${v} - STAR Engineering`;
-  if (type === "PAYMENT") return `Payment Advice ${v} - STAR Engineering`;
-  if (type === "RECEIPT") return `Receipt ${v} - STAR Engineering`;
-  if (type === "JOURNAL") return `Journal Entry - ${meta?.narration || v} - STAR Engineering`;
-  if (type === "PURCHASE_RETURN") return `Debit Note ${v} - STAR Engineering`;
-if (type === "SALES_RETURN") return `Credit Note ${v} - STAR Engineering`;
-  return `Transaction ${v} - STAR Engineering`;
+  if (type === "SALE") return `Sales Invoice ${v} - SERVICE INDIA`;
+  if (type === "PURCHASE") return `Purchase Invoice ${v} - SERVICE INDIA`;
+  if (type === "PAYMENT") return `Payment Advice ${v} - SERVICE INDIA`;
+  if (type === "RECEIPT") return `Receipt ${v} - SERVICE INDIA`;
+  if (type === "JOURNAL") return `Journal Entry - ${meta?.narration || v} - SERVICE INDIA`;
+  if (type === "PURCHASE_RETURN") return `Debit Note ${v} - SERVICE INDIA`;
+if (type === "SALES_RETURN") return `Credit Note ${v} - SERVICE INDIA`;
+  return `Transaction ${v} - SERVICE INDIA`;
 }
 
 function fileToResendAttachmentFromDisk(file) {
@@ -694,14 +858,12 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:3000",
   "http://localhost:5174", // ✅ ADD THIS
 
-  "https://www.stareng.co.in",
-  "https://stareng.co.in",
+  "https://www.serviceind.co.in",
+  "https://serviceind.co.in",
 
-  "https://portal.stareng.co.in",
-  "https://admin.stareng.co.in",
+  "https://portal.serviceind.co.in",
+  "https://admin.serviceind.co.in",
 
-  "https://stareng.vercel.app",
-  "https://stareng-admin.vercel.app",
 ]);
 
 const corsOptions = {
@@ -732,7 +894,7 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 // ✅ Admin credentials from .env (DO NOT hardcode in frontend)
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "corporate@stareng.co.in";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "corporate@serviceind.co.in";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "@N$@R1_@y@n.";
 
 // In-memory stores (simple & fast)
@@ -825,63 +987,83 @@ app.get("/dashboard", async (req, res) => {
 app.post("/public/contact", async (req, res) => {
   const body = req.body || {};
 
-  // ✅ accept both naming styles
   const name = String(body.name || body.fullName || "").trim();
   const company = String(body.company || "").trim();
   const phone = String(body.phone || "").trim();
   const email = String(body.email || "").trim();
   const city = String(body.city || "").trim();
-  const material = String(body.material || body.materialType || "ALL").trim();
+  const workType = String(
+    body.workType || body.material || body.materialType || "ALL"
+  ).trim();
   const preferred = String(body.preferred || body.preferredContact || "Call").trim();
-  const subject = String(body.subject || "STAR ENGINEERING – Requirement Enquiry").trim();
+  const subject = String(
+    body.subject || `${BRAND_NAME} – Work Requirement Enquiry`
+  ).trim();
   const details = String(body.details || body.requirementDetails || "").trim();
   const page = String(body.page || "").trim();
 
-  // ✅ validations (400 only for missing required)
-  if (!name || name.length < 2) return res.status(400).json({ ok: false, message: "Name is required" });
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length < 10) return res.status(400).json({ ok: false, message: "Valid phone is required" });
-  if (!city || city.length < 2) return res.status(400).json({ ok: false, message: "City is required" });
-  if (!details || details.length < 3) return res.status(400).json({ ok: false, message: "Requirement details required" });
+  if (!name || name.length < 2) {
+    return res.status(400).json({ ok: false, message: "Name is required" });
+  }
 
-  // ✅ IMPORTANT: respond immediately (never block UX)
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10) {
+    return res.status(400).json({ ok: false, message: "Valid phone is required" });
+  }
+
+  if (!city || city.length < 2) {
+    return res.status(400).json({ ok: false, message: "City is required" });
+  }
+
+  if (!details || details.length < 3) {
+    return res.status(400).json({ ok: false, message: "Requirement details required" });
+  }
+
   res.status(200).json({
     ok: true,
     message: "Requirement received. Our team will contact you shortly.",
   });
 
-  // ✅ background best-effort (email failure should NEVER affect response)
-setImmediate(async () => {
-  try {
-    if (!process.env.RESEND_API_KEY) {
-      console.error("CONTACT: RESEND_API_KEY missing");
-      return;
+  setImmediate(async () => {
+    try {
+      if (!process.env.RESEND_API_KEY) {
+        console.error("CONTACT: RESEND_API_KEY missing");
+        return;
+      }
+
+      await resend.emails.send({
+        from: RESEND_FROM_FMT,
+        to: process.env.CONTACT_TO_EMAIL || BRAND_EMAIL,
+        subject,
+        html: contactInquiryEmailHTML({
+          name,
+          company,
+          phone,
+          email,
+          city,
+          workType,
+          details,
+          preferred,
+          subject,
+          page,
+        }),
+      });
+
+      if (email) {
+        await resend.emails.send({
+          from: RESEND_FROM_FMT,
+          to: email,
+          subject: `We received your requirement – ${BRAND_NAME}`,
+          html: contactCustomerAckEmailHTML({ name, subject }),
+        });
+      }
+
+      console.log("✅ CONTACT EMAIL SENT (Resend)");
+    } catch (e) {
+      console.error("❌ CONTACT EMAIL FAILED (ignored):", e?.message || e);
     }
-
-    // ✅ corporate (your team)
-await resend.emails.send({
-  from: RESEND_FROM_FMT,
-  to: process.env.CONTACT_TO_EMAIL || "corporate@stareng.co.in",
-  subject,
-  html: contactInquiryEmailHTML({ name, company, phone, email, city, material, details, preferred, subject, page }),
-});
-
-if (email) {
-  await resend.emails.send({
-    from: RESEND_FROM_FMT,
-    to: email,
-    subject: `We received your requirement – STAR Engineering`,
-    html: contactCustomerAckEmailHTML({ name, subject }),
-  });
-}
-
-    console.log("✅ CONTACT EMAIL SENT (Resend)");
-  } catch (e) {
-    console.error("❌ CONTACT EMAIL FAILED (ignored):", e?.message || e);
-  }
   });
 });
-
 const uploadEmail = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -926,7 +1108,7 @@ await resend.emails.send({
   to: [to], // ✅ IMPORTANT FIX
   subject,
   html,
-  reply_to: "corporate@stareng.co.in", // ✅ Resend correct field
+  reply_to: "corporate@serviceind.co.in", // ✅ Resend correct field
   attachments: attachments.length ? attachments : undefined,
 });
 
@@ -1041,7 +1223,7 @@ app.post("/admin/login-step1", async (req, res) => {
    CREATE ADMIN IF NOT EXISTS
 ========================= */
 async function ensureAdmin() {
-  const email = "corporate@stareng.co.in";
+const email = "corporate@serviceind.co.in";
   const password = "@N$@R1_@y@n.";
 
   const hash = await bcrypt.hash(password, 10);
@@ -1308,7 +1490,7 @@ app.post("/customers", requireAdmin, async (req, res) => {
         await resend.emails.send({
           from: RESEND_FROM_FMT,
           to: created.email,
-          subject: "Welcome to STAR Engineering – Your Portal Login",
+          subject: "Welcome to SERVICE INDIA – Your Portal Login",
           html: welcomeEmailHTML({
             name: created.name,
             email: created.email,
@@ -1362,7 +1544,7 @@ if (password && String(password).trim().length >= 4) {
         await resend.emails.send({
           from: RESEND_FROM_FMT,
           to: user.email,
-          subject: "STAR Engineering – Portal Login Credentials",
+          subject: "SERVICE INDIA – Portal Login Credentials",
           html: welcomeEmailHTML({
             name: user.name,
             email: user.email,
@@ -1742,8 +1924,8 @@ function pickTotalAmount(lines) {
 function findInvoiceAndEway(lines) {
   const full = lines.join(" ");
 
-  // ✅ STRICT: STAR ke baad digit MUST (prevents STARENGINEERING / STARCOMPANY etc)
-  const invoiceMatch = full.match(/\b(STAR(?=\d)[A-Z0-9\/-]{3,20})\b/i);
+  // ✅ STRICT: SERVICE INDIA ke baad digit MUST (prevents SERVICEINDIA / SERVICECOMPANY etc)
+  const invoiceMatch = full.match(/\b(SERV(?=\d)[A-Z0-9\/-]{3,20})\b/i);
   const invoiceNo = invoiceMatch ? invoiceMatch[1].toUpperCase() : "";
 
   // ✅ e-way strictly 12 digits
@@ -1812,7 +1994,7 @@ function sanitizeVoucherNo(v) {
   let s = String(v || "").trim().toUpperCase(); // ✅ FIRST define
 
     // ✅ EXTRA SAFETY: STAR ke baad digit nahi hai to reject
-  if (/^STAR(?!\d)/.test(s)) return "";
+  if (/^SERV(?!\d)/.test(s)) return "";
 
   // ✅ reject common wrong tokens
   if (s === "EWAY" || s === "E-WAY" || s === "EWAYBILL") return "";
@@ -2750,10 +2932,10 @@ app.get("/ledger/:partyId/pdf", requireAdminOrSameCustomer, async (req, res) => 
     const bottom = doc.page.margins.bottom;
     const usableW = pageW - left - right;
 
-    const col = { date: 72, particulars: 0, vchType: 78, vchNo: 78, debit: 78, credit: 78 };
+    const col = { date: 72, particulars: 0, vchType: 78, vchNo: 120, debit: 78, credit: 78 };
     col.particulars = usableW - (col.date + col.vchType + col.vchNo + col.debit + col.credit);
     if (col.particulars < 160) {
-      col.vchType = 70; col.vchNo = 70; col.debit = 74; col.credit = 74;
+      col.vchType = 70; col.vchNo = 120; col.debit = 74; col.credit = 74;
       col.particulars = usableW - (col.date + col.vchType + col.vchNo + col.debit + col.credit);
     }
 
@@ -2779,51 +2961,103 @@ app.get("/ledger/:partyId/pdf", requireAdminOrSameCustomer, async (req, res) => 
       return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function drawHeader() {
-      const titleY = top;
-      const gradient = doc.linearGradient(0, titleY, pageW, titleY);
-      gradient.stop(0, "#ff2d55");
-      gradient.stop(0.5, "#7c3aed");
-      gradient.stop(1, "#2563eb");
+function drawHeader() {
+  const titleY = top;
 
-      doc.font("Helvetica-Bold").fontSize(18).fill(gradient).text("STAR ENGINEERING", 0, titleY, { align: "center" });
-      doc.moveDown(0.5);
+  // ===== Brand heading =====
+  const gradient = doc.linearGradient(left, titleY, left + usableW, titleY);
+  gradient.stop(0, "#0b3d91");
+  gradient.stop(0.35, "#0b5ed7");
+  gradient.stop(0.7, "#00a3ff");
+  gradient.stop(1, "#ff8c00");
 
-      doc.fillColor("#111827").font("Helvetica").fontSize(9);
-      doc.text("H.N. 303, Sangam C.H.S., Indra Nagar,", { align: "center" });
-      doc.text("Pathan Wadi, R.S. Marg, Malad (E), Mumbai - 400097.", { align: "center" });
-      doc.text("Contact : +91-9702485922  |  E-Mail : corporate@stareng.co.in", { align: "center" });
-      doc.text("www.stareng.co.in", { align: "center" });
+  doc.font("Helvetica-Bold").fontSize(22).fill(gradient);
+  doc.text("SERVICE INDIA", left, titleY, { width: usableW, align: "center" });
 
-      doc.moveDown(0.8);
+  // shine line
+  let y = titleY + 28;
+  doc.save();
+  doc.lineWidth(2);
+  const lineGrad = doc.linearGradient(left + 120, y, left + usableW - 120, y);
+  lineGrad.stop(0, "#0b3d91");
+  lineGrad.stop(0.5, "#00a3ff");
+  lineGrad.stop(1, "#ff8c00");
+  doc.strokeColor(lineGrad);
+  doc.moveTo(left + 120, y).lineTo(left + usableW - 120, y).stroke();
+  doc.restore();
 
-      doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(12).text(String(party.name || ""), { align: "center" });
-      doc.font("Helvetica").fontSize(10).text("Ledger Account", { align: "center" });
-      doc.font("Helvetica").fontSize(9).fillColor("#334155").text(
-        `Period: ${fmtDate(fromDate)} to ${fmtDate(toDate)}`,
-        { align: "center" }
-      );
+  y += 10;
 
-      doc.moveDown(0.8);
-      doc.fillColor("#111827");
-    }
+  // ===== Company details =====
+  doc.fillColor("#111827").font("Helvetica").fontSize(10);
+  doc.text("H.N. 303, Sangam C.H.S., Indra Nagar,", left, y, { width: usableW, align: "center" });
+  y += 14;
+  doc.text("Pathan Wadi, R.S. Marg, Malad (E), Mumbai - 400097.", left, y, { width: usableW, align: "center" });
+  y += 14;
+  doc.text("Contact : +91-9702485922  |  E-Mail : corporate@serviceind.co.in", left, y, { width: usableW, align: "center" });
+  y += 14;
+  doc.fillColor("#0b5ed7");
+  doc.text("www.serviceind.co.in", left, y, { width: usableW, align: "center", underline: false });
 
+  y += 24;
+
+  // ===== Party name =====
+  doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(16);
+  doc.text(String(party.name || "").toUpperCase(), left, y, { width: usableW, align: "center" });
+
+  y += 18;
+  doc.font("Helvetica").fontSize(12).fillColor("#1f2937");
+  doc.text("Ledger Account", left, y, { width: usableW, align: "center" });
+
+  y += 16;
+  doc.font("Helvetica").fontSize(10).fillColor("#475569");
+  doc.text(`Period: ${fmtDate(fromDate)} to ${fmtDate(toDate)}`, left, y, {
+    width: usableW,
+    align: "center",
+  });
+
+  y += 18;
+
+  // ===== Divider =====
+  doc.save();
+  doc.lineWidth(1);
+  doc.strokeColor("#cbd5e1");
+  doc.moveTo(left, y).lineTo(left + usableW, y).stroke();
+  doc.restore();
+
+  doc.y = y + 10;
+  doc.fillColor("#111827");
+}
     function drawTableHeader(y) {
-      doc.font("Helvetica-Bold").fontSize(9).fillColor("#111827");
-      hr(y, 0.7); y += 3;
+  // top line
+  doc.save();
+  doc.lineWidth(0.9);
+  doc.strokeColor("#94a3b8");
+  doc.moveTo(left, y).lineTo(left + usableW, y).stroke();
+  doc.restore();
 
-      doc.text("DATE", X.date, y, { width: col.date });
-      doc.text("PARTICULARS", X.particulars, y, { width: col.particulars });
-      doc.text("VCH NO.", X.vchNo, y, { width: col.vchNo });
-      doc.text("DEBIT", X.debit, y, { width: col.debit, align: "right" });
-      doc.text("CREDIT", X.credit, y, { width: col.credit, align: "right" });
+  y += 6;
 
-      y += 10;
-      hr(y, 0.7); y += 3;
+  doc.font("Helvetica-Bold").fontSize(9).fillColor("#0f172a");
 
-      doc.font("Helvetica").fontSize(9);
-      return y;
-    }
+  doc.text("DATE", X.date, y, { width: col.date });
+  doc.text("PARTICULARS", X.particulars, y, { width: col.particulars });
+  doc.text("VCH NO.", X.vchNo, y, { width: col.vchNo });
+  doc.text("DEBIT", X.debit, y, { width: col.debit, align: "right" });
+  doc.text("CREDIT", X.credit, y, { width: col.credit, align: "right" });
+
+  y += 12;
+
+  doc.save();
+  doc.lineWidth(0.8);
+  doc.strokeColor("#94a3b8");
+  doc.moveTo(left, y).lineTo(left + usableW, y).stroke();
+  doc.restore();
+
+  y += 5;
+  doc.font("Helvetica").fontSize(9).fillColor("#111827");
+  return y;
+}
 
     function rowHeight(particularsText) {
       const hPart = doc.heightOfString(particularsText || "", { width: col.particulars, align: "left" });
@@ -2856,19 +3090,28 @@ app.get("/ledger/:partyId/pdf", requireAdminOrSameCustomer, async (req, res) => 
 
 function drawFooter(pageNo) {
   const footerText =
-    "This is a system generated ledger statement. As per Rule 46 of the Central Goods and Services Tax Rules, 2017 read with Section 16 of the Information Technology Act, 2000, no physical signature is required on a digitally issued document."
+    "This is a system generated ledger statement. No physical signature is required on digitally issued documents.";
 
   doc.save();
-  doc.font("Helvetica").fontSize(7).fillColor("#475569");
+  doc.font("Helvetica").fontSize(7).fillColor("#64748b");
 
-  // ✅ wrap allowed + height calculate so it never spills to next page
-  const footerH = doc.heightOfString(footerText, { width: usableW - 60, align: "center" });
-  const footerY = doc.page.height - doc.page.margins.bottom - footerH - 6;
+  const footerH = doc.heightOfString(footerText, {
+    width: usableW - 70,
+    align: "center",
+  });
 
-  doc.text(footerText, left, footerY, { width: usableW - 60, align: "center" });
+  const footerY = doc.page.height - doc.page.margins.bottom - footerH - 8;
+
+  doc.text(footerText, left, footerY, {
+    width: usableW - 70,
+    align: "center",
+  });
 
   doc.fillColor("#94a3b8");
-  doc.text(`Page ${pageNo}`, left, footerY, { width: usableW, align: "right" });
+  doc.text(`Page ${pageNo}`, left, footerY, {
+    width: usableW,
+    align: "right",
+  });
 
   doc.restore();
   doc.fillColor("#111827");
@@ -3132,7 +3375,7 @@ app.get("/customer-portal/export-ledger-pdf", requireCustomer, async (req, res) 
    ROOT
 ========================= */
 app.get("/", (req, res) => {
-  res.send("STAR ENGINEERING API RUNNING 🚀");
+  res.send("SERVICE INDIA API RUNNING 🚀");
 });
 // ✅ Multer error handler (so "too many files" doesn't become 500)
 app.use((err, req, res, next) => {

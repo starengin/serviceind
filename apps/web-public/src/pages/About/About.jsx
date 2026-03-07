@@ -30,8 +30,7 @@ export default function About() {
 
   return (
     <>
-      {/* ✅ Full-width hero band (same home vibe) */}
-<section className="aboutBand aboutBand--blueprint">
+      <section className="aboutBand aboutBand--blueprint">
         <div className="aboutBandBg" aria-hidden="true">
           <div className="abBlob a1" />
           <div className="abBlob a2" />
@@ -43,57 +42,57 @@ export default function About() {
           <div className="aboutHeroBlock" data-reveal>
             <div className="heroBadge">
               <span className="dot" />
-              Corporate • Industrial • Procurement Ready
+              Industrial • Fabrication • Site Execution
             </div>
 
             <h1 className="aboutH1">
-              About <span className="gradText">STAR ENGINEERING</span>
+              About <span className="gradText">SERVICE INDIA</span>
             </h1>
 
             <p className="aboutLead">
-              STAR Engineering is a trusted supplier of steel, iron, metals and engineering materials —
-              built to support infrastructure, manufacturing, fabrication, and corporate procurement teams
-              with reliable supply and professional documentation.
+              SERVICE INDIA is focused on fabrication, installation, repair,
+              maintenance and industrial job work solutions. We support factories,
+              workshops, warehouses, commercial sites and project requirements with
+              practical execution, dependable manpower and professional coordination.
             </p>
 
             <div className="aboutHeroActions">
-              <Button onClick={() => nav("/contact")}>Request a Quote</Button>
-              <button className="btnGhost btnGhost--cta" onClick={() => nav("/shop")}>
-                View Product Listing
+              <Button onClick={() => nav("/contact")}>Send Requirement</Button>
+              <button className="btnGhost btnGhost--cta" onClick={() => nav("/work")}>
+                View Work Listing
               </button>
             </div>
           </div>
 
-          {/* ✅ Stats strip */}
           <div className="aboutStats" data-reveal>
             <div className="statBox">
-              <div className="statK">Industrial Supply</div>
-              <div className="statS">Steel • Iron • Metals</div>
+              <div className="statK">Fabrication Work</div>
+              <div className="statS">MS • SS • GI structure jobs</div>
             </div>
             <div className="statBox">
-              <div className="statK">Bulk Orders</div>
-              <div className="statS">PO / Tender friendly</div>
+              <div className="statK">Site Execution</div>
+              <div className="statS">Installation • erection • fitting</div>
             </div>
             <div className="statBox">
-              <div className="statK">Documentation</div>
-              <div className="statS">Invoice • GST • Challan</div>
+              <div className="statK">Repair Support</div>
+              <div className="statS">Modification • retrofit • maintenance</div>
             </div>
             <div className="statBox">
-              <div className="statK">Support</div>
-              <div className="statS">Clear communication</div>
+              <div className="statK">Custom Jobs</div>
+              <div className="statS">As per drawing / site requirement</div>
             </div>
           </div>
         </div>
       </section>
 
       <div className="container">
-        {/* ✅ Company Overview + History */}
         <section className="aboutSection" data-reveal>
           <div className="sectionHead">
             <h2 className="h2">Company Overview</h2>
             <p className="sub">
-              We operate as a dependable sourcing and supply partner for engineering materials —
-              focused on quality consistency, supply reliability, and transparent dealing.
+              We work as a practical execution partner for fabrication and
+              industrial support jobs — focused on quality workmanship, timely
+              completion and clear coordination.
             </p>
           </div>
 
@@ -101,139 +100,178 @@ export default function About() {
             <div className="aboutCardX">
               <h3 className="aboutH3">What we do</h3>
               <p className="aboutP">
-                We supply structural steel sections, MS/SS/GI materials, rods & bars, plates & sheets,
-                fabrication essentials, fasteners and industrial consumables. Our process is designed
-                for corporate purchasing — quick quotes, clear specifications, and professional records.
+                SERVICE INDIA handles structural fabrication, shed work, roofing,
+                cladding, gates, grills, railings, platforms, pipe supports,
+                machine frames, staircase fabrication and industrial installation work.
               </p>
               <p className="aboutP">
-                Whether you need regular supply for daily operations or bulk material for project timelines,
-                we support procurement with clarity and speed.
+                We also support repair, retrofit, strengthening and custom job work
+                as per drawing, site dimensions, sample or operational requirement.
+                Whether the job is workshop-based or site-based, our focus remains on
+                proper execution and reliable delivery.
               </p>
             </div>
 
             <div className="aboutCardX">
-              <h3 className="aboutH3">Our history (how we work)</h3>
+              <h3 className="aboutH3">Our journey (how we work)</h3>
               <div className="timeline">
                 <div className="tlItem">
                   <div className="tlDot" />
                   <div>
                     <div className="tlTitle">Foundation</div>
-                    <div className="tlSub">Established in 2013. Started with a focus on quality supply and long-term relationships.</div>
+                    <div className="tlSub">
+                      Started with a practical approach to fabrication and industrial
+                      service work, focused on quality execution and long-term trust.
+                    </div>
                   </div>
                 </div>
+
                 <div className="tlItem">
                   <div className="tlDot" />
                   <div>
                     <div className="tlTitle">Expansion</div>
-                    <div className="tlSub">Extended categories to support fabrication, construction, and procurement needs.</div>
+                    <div className="tlSub">
+                      Expanded into structural jobs, shed work, repair work,
+                      installation support and custom project execution.
+                    </div>
                   </div>
                 </div>
+
                 <div className="tlItem">
                   <div className="tlDot" />
                   <div>
-                    <div className="tlTitle">Corporate-ready operations</div>
-                    <div className="tlSub">PO-based supply, documentation workflow and dispatch coordination.</div>
+                    <div className="tlTitle">Execution-focused workflow</div>
+                    <div className="tlSub">
+                      Site visits, drawing-based work, measurement confirmation,
+                      material planning and manpower coordination.
+                    </div>
                   </div>
                 </div>
+
                 <div className="tlItem">
                   <div className="tlDot" />
                   <div>
                     <div className="tlTitle">Today</div>
-                    <div className="tlSub">Reliable sourcing + professional support for industrial customers.</div>
+                    <div className="tlSub">
+                      Reliable fabrication and industrial work support for workshops,
+                      warehouses, factories and project sites.
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div className="aboutNote">
                 <span className="pillMini">Note</span>
-                <span className="muted">Exact grades/specs are confirmed as per requirement and availability.</span>
+                <span className="muted">
+                  Exact scope, material, finish and timeline are finalized as per
+                  drawing, site condition and requirement.
+                </span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ✅ Values / Why us */}
         <section className="aboutSection" data-reveal>
           <div className="sectionHead">
-            <h2 className="h2">Why organizations choose us?</h2>
+            <h2 className="h2">Why clients choose us?</h2>
             <p className="sub">
-              We focus on dependable supply for industrial timelines — not just selling products.
+              We focus on dependable execution for industrial and fabrication jobs —
+              not just basic labour supply.
             </p>
           </div>
 
           <div className="aboutGrid3">
-{[
-  { t: "Specification-first supply", s: "Grades, sizes and quantities confirmed before dispatch — fewer mismatches." },
-  { t: "Procurement-ready workflow", s: "PO-based supply, billing clarity, GST invoices and challans in order." },
-  { t: "Predictable timelines", s: "Availability + dispatch timelines shared upfront with clear confirmations." },
-  { t: "Bulk & repeat capability", s: "Supports tenders, projects and monthly procurement cycles." },
-  { t: "Transparent communication", s: "Clear pricing, status updates and practical coordination — no confusion." },
-  { t: "After-dispatch support", s: "Documentation, follow-ups and repeat orders handled professionally." },
-].map((x, i) => (
-  <div className="whyCard" data-reveal key={i}>
-    <div className="whyTop">
-      <span className="whyDot" aria-hidden="true" />
-      <div className="whyTitle">{x.t}</div>
-    </div>
-    <div className="whySub">{x.s}</div>
-    <div className="whyBar" aria-hidden="true" />
-  </div>
-))}
+            {[
+              {
+                t: "Requirement-first approach",
+                s: "We understand drawing, dimensions, site conditions and execution needs before starting work.",
+              },
+              {
+                t: "Practical fabrication support",
+                s: "From structural work to custom jobs, solutions are planned according to actual usage and site fitment.",
+              },
+              {
+                t: "Clear execution planning",
+                s: "Work scope, timeline, manpower and installation sequence are coordinated in a practical manner.",
+              },
+              {
+                t: "Site + workshop capability",
+                s: "Jobs can be handled in workshop fabrication mode, on-site execution mode, or combined support.",
+              },
+              {
+                t: "Repair and modification support",
+                s: "Existing structures, sheds, supports and industrial works can be repaired, strengthened or modified.",
+              },
+              {
+                t: "Professional coordination",
+                s: "Communication remains clear throughout requirement discussion, work execution and completion stage.",
+              },
+            ].map((x, i) => (
+              <div className="whyCard" data-reveal key={i}>
+                <div className="whyTop">
+                  <span className="whyDot" aria-hidden="true" />
+                  <div className="whyTitle">{x.t}</div>
+                </div>
+                <div className="whySub">{x.s}</div>
+                <div className="whyBar" aria-hidden="true" />
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* ✅ Supply process (visual) */}
         <section className="aboutSection" data-reveal>
           <div className="sectionHead">
-            <h2 className="h2">How supply works</h2>
-            <p className="sub">Simple steps designed for corporate purchasing and project timelines.</p>
+            <h2 className="h2">How work execution happens</h2>
+            <p className="sub">
+              Simple process designed for fabrication, installation and industrial site work.
+            </p>
           </div>
 
           <div className="steps">
             {[
-  {
-    n: "01",
-    t: "Requirement & specification",
-    s: "Share item list (grade/size/quantity), delivery location, and timeline. We verify feasibility.",
-  },
-  {
-    n: "02",
-    t: "Quotation & availability",
-    s: "We provide pricing, availability window, dispatch plan and documentation checklist (GST/Challan).",
-  },
-  {
-    n: "03",
-    t: "PO / confirmation",
-    s: "Procurement confirmation via PO/approval. We lock specs, packaging requirements and dispatch schedule.",
-  },
-  {
-    n: "04",
-    t: "Packaging, billing & dispatch",
-    s: "Material handling + invoice/GST/challan, dispatch coordination and tracking updates until delivery.",
-  },
-].map((x, i) => (
-  <div className="step step--alt" data-reveal key={i}>
-    <div className="stepNo">{x.n}</div>
-    <div className="stepTitle">{x.t}</div>
-    <div className="stepSub">{x.s}</div>
-    <div className="stepGlow" aria-hidden="true" />
-  </div>
-))}
+              {
+                n: "01",
+                t: "Requirement discussion",
+                s: "Share drawing, dimensions, work type, site location, quantity and expected timeline.",
+              },
+              {
+                n: "02",
+                t: "Review & planning",
+                s: "We study scope, confirm execution method, manpower need, material requirement and practical feasibility.",
+              },
+              {
+                n: "03",
+                t: "Quotation / approval",
+                s: "Commercials, work scope and timeline are finalized before fabrication or site execution begins.",
+              },
+              {
+                n: "04",
+                t: "Execution & completion",
+                s: "Fabrication, fitting, installation, repair or erection work is completed with proper coordination and updates.",
+              },
+            ].map((x, i) => (
+              <div className="step step--alt" data-reveal key={i}>
+                <div className="stepNo">{x.n}</div>
+                <div className="stepTitle">{x.t}</div>
+                <div className="stepSub">{x.s}</div>
+                <div className="stepGlow" aria-hidden="true" />
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* ✅ CTA band (same home style) */}
         <section className="ctaBand" data-reveal>
           <div className="ctaLeft">
-            <h2 className="ctaTitle">Need materials for your next requirement?</h2>
+            <h2 className="ctaTitle">Need fabrication or industrial work support?</h2>
             <p className="ctaSub">
-              Send your specifications and we’ll respond with a quote and availability.
+              Share your drawing, dimensions or site requirement and we’ll respond
+              with the right execution approach.
             </p>
           </div>
           <div className="ctaRight">
-            <Button onClick={() => nav("/contact")}>Talk to Sales</Button>
-            <button className="btnGhost btnGhost--cta" onClick={() => nav("/shop")}>
-              Browse Listing
+            <Button onClick={() => nav("/contact")}>Talk to Us</Button>
+            <button className="btnGhost btnGhost--cta" onClick={() => nav("/work")}>
+              Browse Work
             </button>
           </div>
         </section>

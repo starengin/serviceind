@@ -1,6 +1,6 @@
-﻿const KEY = "star_customer_auth";
+﻿const KEY = "serviceind_customer_auth";
 
-// ✅ sessionStorage => window/tab close hote hi token clear (auto logout behavior)
+// sessionStorage => browser tab/window close pe auto clear
 const storage = sessionStorage;
 
 export function saveAuth(payload) {
