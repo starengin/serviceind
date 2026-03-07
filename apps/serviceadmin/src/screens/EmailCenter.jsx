@@ -201,7 +201,7 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="${LOGO_URL}"
+                <img src="https://www.serviceind.co.in/brand/logo.jpg"
                      alt="${BRAND_NAME}"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
