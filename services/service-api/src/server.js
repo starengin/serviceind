@@ -902,28 +902,6 @@ function makeStoragePath(prefix, originalName = "file.pdf") {
   return `${prefix}/${Date.now()}_${crypto.randomBytes(6).toString("hex")}_${base}${ext}`;
 }
 
-async function uploadBufferToSupabase(file, prefix = "txn") {
-  if (!supabase) throw new Error("Supabase not configured");
-
-  const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
-
-  const { error } = await supabase.storage
-    .from(SUPABASE_BUCKET)
-    .upload(storagePath, file.buffer, {
-      contentType: file.mimetype || "application/pdf",
-      upsert: false,
-    });
-
-  if (error) throw error;
-
-  return {
-    storagePath,
-    originalName: file.originalname,
-    mimeType: file.mimetype,
-    size: file.size,
-  };
-}
-
 async function downloadFromSupabase(storagePath) {
   if (!supabase) throw new Error("Supabase not configured");
 
@@ -1069,7 +1047,7 @@ async function maybeCompressPdf(file) {
       compressedSize,
     });
 
-    if (compressedSize > 0 && compressedSize < originalSize * 0.50){
+    if (compressedSize > 0 && compressedSize < originalSize * 0.90){
       try { fs.unlinkSync(originalPath); } catch {}
 
       return {
@@ -3036,33 +3014,45 @@ app.post("/transactions/:id/pdfs", uploadDisk.array("pdfs"), async (req, res) =>
     const txn = await prisma.transaction.findUnique({ where: { id } });
     if (!txn) return res.status(404).json({ error: "Transaction not found" });
 
-    const created = [];
-if (req.files?.length) {
-  for (const file of req.files) {
+function makeStoragePath(prefix, originalName = "file.pdf") {
+  const ext = path.extname(originalName || "") || ".pdf";
+  const base = path
+    .basename(originalName || "file.pdf", ext)
+    .replace(/[^a-zA-Z0-9-_]/g, "_")
+    .slice(0, 80);
 
-    const finalFile = await maybeCompressPdf(file);
+  return `${prefix}/${Date.now()}_${crypto.randomBytes(6).toString("hex")}_${base}${ext}`;
+}
 
-    const uploaded = await uploadFileToSupabase(
-      finalFile,
-      `transactions/${id}`
-    );
+async function uploadFileToSupabase(file, prefix = "txn") {
+  if (!supabase) throw new Error("Supabase not configured");
 
-    const p = await prisma.transactionPDF.create({
-      data: {
-        transactionId: id,
-        filePath: uploaded.storagePath,
-        originalName: uploaded.originalName,
-        mimeType: uploaded.mimeType,
-        size: uploaded.size,
-      },
+  const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
+
+  let fileContent;
+  if (file.buffer) {
+    fileContent = file.buffer;
+  } else if (file.path) {
+    fileContent = fs.readFileSync(file.path);
+  } else {
+    throw new Error("No file buffer/path found for upload");
+  }
+
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(storagePath, fileContent, {
+      contentType: file.mimetype || "application/pdf",
+      upsert: false,
     });
 
-    created.push(p);
+  if (error) throw error;
 
-    if (finalFile.path && fs.existsSync(finalFile.path)) {
-      try { fs.unlinkSync(finalFile.path); } catch {}
-    }
-  }
+  return {
+    storagePath,
+    originalName: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size,
+  };
 }
 
     const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
