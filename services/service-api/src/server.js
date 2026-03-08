@@ -8,6 +8,10 @@ const { PrismaClient } = require("@prisma/client");
 const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const execFileAsync = promisify(execFile);
 // EMAIL TEMPLATES (safe load)
 // ✅ EMAIL TEMPLATES (safe load) — server.js is in /src, templates are in /emailTemplates (one level up)
 const TEMPLATES_DIR = path.join(__dirname, "..", "emailTemplates");
@@ -859,6 +863,36 @@ function fileToResendAttachmentFromDisk(file) {
   };
 }
 function makeStoragePath(prefix, originalName = "file.pdf") {
+  async function uploadFileToSupabase(file, prefix = "txn") {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
+
+  let fileContent;
+  if (file.buffer) {
+    fileContent = file.buffer;
+  } else if (file.path) {
+    fileContent = fs.readFileSync(file.path);
+  } else {
+    throw new Error("No file buffer/path found for upload");
+  }
+
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(storagePath, fileContent, {
+      contentType: file.mimetype || "application/pdf",
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  return {
+    storagePath,
+    originalName: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size,
+  };
+}
   const ext = path.extname(originalName || "") || ".pdf";
   const base = path
     .basename(originalName || "file.pdf", ext)
@@ -968,6 +1002,106 @@ const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "upload
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use("/uploads", express.static(UPLOAD_DIR));
+function isPdfFile(file) {
+  const name = String(file?.originalname || "").toLowerCase();
+  const mime = String(file?.mimetype || "").toLowerCase();
+  return mime === "application/pdf" || name.endsWith(".pdf");
+}
+
+async function compressPdfWithGhostscript(inputPath, outputPath) {
+  const gsCmd = process.env.GS_COMMAND || "gs";
+
+  const args = [
+    "-sDEVICE=pdfwrite",
+    "-dCompatibilityLevel=1.4",
+    "-dNOPAUSE",
+    "-dQUIET",
+    "-dBATCH",
+    "-dSAFER",
+
+    "-dPDFSETTINGS=/screen",
+
+    "-dDetectDuplicateImages=true",
+    "-dCompressFonts=true",
+    "-dSubsetFonts=true",
+
+    "-dDownsampleColorImages=true",
+    "-dColorImageDownsampleType=/Bicubic",
+    "-dColorImageResolution=96",
+
+    "-dDownsampleGrayImages=true",
+    "-dGrayImageDownsampleType=/Bicubic",
+    "-dGrayImageResolution=96",
+
+    "-dDownsampleMonoImages=true",
+    "-dMonoImageDownsampleType=/Subsample",
+    "-dMonoImageResolution=150",
+
+    `-sOutputFile=${outputPath}`,
+    inputPath,
+  ];
+
+  await execFileAsync(gsCmd, args);
+}
+
+async function maybeCompressPdf(file) {
+  if (!file?.path || !isPdfFile(file)) {
+    return file;
+  }
+
+  const originalPath = file.path;
+  const parsed = path.parse(originalPath);
+  const compressedPath = path.join(parsed.dir, `${parsed.name}-compressed.pdf`);
+
+  try {
+    await compressPdfWithGhostscript(originalPath, compressedPath);
+
+    if (!fs.existsSync(compressedPath)) {
+      return file;
+    }
+
+    const originalSize = fs.statSync(originalPath).size;
+    const compressedSize = fs.statSync(compressedPath).size;
+
+    console.log("PDF SIZE CHECK:", {
+      name: file.originalname,
+      originalSize,
+      compressedSize,
+    });
+
+    if (compressedSize > 0 && compressedSize < originalSize * 0.50){
+      try { fs.unlinkSync(originalPath); } catch {}
+
+      return {
+        ...file,
+        path: compressedPath,
+        filename: path.basename(compressedPath),
+        size: compressedSize,
+        originalSize,
+        compressed: true,
+      };
+    }
+
+    try { fs.unlinkSync(compressedPath); } catch {}
+
+    return {
+      ...file,
+      originalSize,
+      compressed: false,
+    };
+  } catch (err) {
+    console.error("PDF COMPRESSION FAILED, USING ORIGINAL:", err?.message || err);
+
+    if (fs.existsSync(compressedPath)) {
+      try { fs.unlinkSync(compressedPath); } catch {}
+    }
+
+    return {
+      ...file,
+      compressed: false,
+    };
+  }
+}
 
 // ✅ Admin credentials from .env (DO NOT hardcode in frontend)
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "corporate@serviceind.co.in";
@@ -1862,7 +1996,7 @@ function extractFromPdfText(text) {
 // ✅ Scan PDF -> extract basic fields (autofill)
 
 const uploadDisk = multer({
-  storage: multer.memoryStorage(),
+  dest: UPLOAD_DIR,
   limits: {
     fileSize: 25 * 1024 * 1024,
     files: 50,
@@ -2603,6 +2737,7 @@ function dayRange(dateStr) {
 // create txn (+ pdfs) + AUTO EMAIL
 app.post("/transactions", requireAdmin, uploadDisk.array("pdfs"), async (req, res) => {
   try {
+        let processedFiles = req.files || [];
     const { type, voucherNo, date, amount, drcr, narration, partyId, sendEmail } = req.body;
 
     // ✅ meta from frontend (FormData -> string)
@@ -2660,20 +2795,35 @@ app.post("/transactions", requireAdmin, uploadDisk.array("pdfs"), async (req, re
       },
     });
 
-if (req.files?.length) {
-  for (const file of req.files) {
-    const uploaded = await uploadBufferToSupabase(file, `transactions/${txn.id}`);
+if (processedFiles.length) {
+  const finalFiles = [];
+
+  for (const file of processedFiles) {
+    const finalFile = await maybeCompressPdf(file);
+    finalFiles.push(finalFile);
+
+    const uploaded = await uploadFileToSupabase(
+      finalFile,
+      `txn/${txn.id}`
+    );
 
     await prisma.transactionPDF.create({
       data: {
         transactionId: txn.id,
-        filePath: uploaded.storagePath,
+        filePath: uploaded.storagePath,   // ✅ supabase path save hoga
         originalName: uploaded.originalName,
         mimeType: uploaded.mimeType,
         size: uploaded.size,
       },
     });
+
+    // local temp file delete after supabase upload
+    if (finalFile.path && fs.existsSync(finalFile.path)) {
+      try { fs.unlinkSync(finalFile.path); } catch {}
+    }
   }
+
+  processedFiles = finalFiles;
 }
 
     // ✅ respond immediately (never block)
@@ -2889,7 +3039,13 @@ app.post("/transactions/:id/pdfs", uploadDisk.array("pdfs"), async (req, res) =>
     const created = [];
 if (req.files?.length) {
   for (const file of req.files) {
-    const uploaded = await uploadBufferToSupabase(file, `transactions/${id}`);
+
+    const finalFile = await maybeCompressPdf(file);
+
+    const uploaded = await uploadFileToSupabase(
+      finalFile,
+      `transactions/${id}`
+    );
 
     const p = await prisma.transactionPDF.create({
       data: {
@@ -2902,6 +3058,10 @@ if (req.files?.length) {
     });
 
     created.push(p);
+
+    if (finalFile.path && fs.existsSync(finalFile.path)) {
+      try { fs.unlinkSync(finalFile.path); } catch {}
+    }
   }
 }
 
@@ -2967,6 +3127,9 @@ app.get("/pdfs/:pdfId", async (req, res) => {
     }
 
     // ✅ ADMIN can view all (no extra check)
+    if (payload.role !== "ADMIN" && payload.role !== "CUSTOMER") {
+  return res.status(403).send("Forbidden");
+}
 const fileBuffer = await downloadFromSupabase(pdf.filePath);
 
 res.setHeader("Content-Type", pdf.mimeType || "application/pdf");
