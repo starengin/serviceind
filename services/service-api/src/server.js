@@ -3412,7 +3412,35 @@ function drawFooter(pageNo) {
     res.status(500).json({ error: "PDF export failed", details: String(e.message || e) });
   }
 });
+app.get("/debug/txns", async (req, res) => {
+  try {
+    const txns = await prisma.transaction.findMany({
+      orderBy: { id: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        voucherNo: true,
+        type: true,
+        amount: true,
+        drcr: true,
+        date: true,
+        partyId: true,
+        createdById: true,
+      },
+    });
 
+    res.json({
+      ok: true,
+      count: txns.length,
+      txns,
+      dbUrlPreview: process.env.DATABASE_URL
+        ? process.env.DATABASE_URL.replace(/\/\/([^:]+):([^@]+)@/, "//$1:****@")
+        : "MISSING",
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message || "debug failed" });
+  }
+});
 /* =========================
    CUSTOMER PORTAL DASHBOARD
 ========================= */
