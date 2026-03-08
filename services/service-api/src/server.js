@@ -1835,12 +1835,12 @@ app.put("/users/:id", async (req, res) => {
   }
 });
 
-app.get("/users", async (req, res) => {
+app.get("/users", requireAdmin, async (req, res) => {
   const users = await prisma.user.findMany({ where: { role: "CUSTOMER" } });
   res.json(users);
 });
 
-app.delete("/users/:id", async (req, res) => {
+app.delete("/users/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
 
@@ -2682,7 +2682,7 @@ app.post("/transactions/scan", uploadMem.single("pdf"), async (req, res) => {
 
 
 // list (admin side)
-app.get("/transactions", async (req, res) => {
+app.get("/transactions", requireAdmin, async (req, res) => {
   try {
     const { partyId, from, to, q } = req.query;
 
@@ -2973,7 +2973,7 @@ for (const p of txn.pdfs || []) {
   }
 });
 // update txn
-app.put("/transactions/:id", async (req, res) => {
+app.put("/transactions/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const body = req.body || {};
@@ -2999,7 +2999,7 @@ app.put("/transactions/:id", async (req, res) => {
 });
 
 // delete txn (+ delete pdf records + files)
-app.delete("/transactions/:id", async (req, res) => {
+app.delete("/transactions/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
 
@@ -3021,15 +3021,46 @@ await prisma.transactionPDF.deleteMany({ where: { transactionId: id } });
 });
 
 // add pdfs to existing txn
-app.post("/transactions/:id/pdfs", uploadDisk.array("pdfs"), async (req, res) => {
+app.post("/transactions/:id/pdfs", requireAdmin, uploadDisk.array("pdfs"), async (req, res) => {
   try {
     const id = Number(req.params.id);
 
     const txn = await prisma.transaction.findUnique({ where: { id } });
     if (!txn) return res.status(404).json({ error: "Transaction not found" });
 
-    
-    const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
+    const created = [];
+
+    if (req.files?.length) {
+      for (const file of req.files) {
+        const finalFile = await maybeCompressPdf(file);
+
+        const uploaded = await uploadFileToSupabase(
+          finalFile,
+          `transactions/${id}`
+        );
+
+        const p = await prisma.transactionPDF.create({
+          data: {
+            transactionId: id,
+            filePath: uploaded.storagePath,
+            originalName: uploaded.originalName,
+            mimeType: uploaded.mimeType,
+            size: uploaded.size,
+          },
+        });
+
+        created.push(p);
+
+        if (finalFile.path && fs.existsSync(finalFile.path)) {
+          try { fs.unlinkSync(finalFile.path); } catch {}
+        }
+      }
+    }
+
+    const pdfs = await prisma.transactionPDF.findMany({
+      where: { transactionId: id },
+    });
+
     res.json({ ok: true, added: created.length, pdfs });
   } catch (e) {
     console.error(e);
@@ -3038,7 +3069,7 @@ app.post("/transactions/:id/pdfs", uploadDisk.array("pdfs"), async (req, res) =>
 });
 
 // remove pdf from txn
-app.delete("/transactions/:id/pdfs/:pdfId", async (req, res) => {
+app.delete("/transactions/:id/pdfs/:pdfId", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const pdfId = Number(req.params.pdfId);
