@@ -3240,11 +3240,23 @@ function drawHeader() {
       doc.text(money2(r.cr), X.credit, y, { width: col.credit, align: "right" });
 
       if (totalsLine) {
-        const lineY = totalsLine === "above" ? (y - 2) : (y + h - 2);
         doc.save();
         doc.lineWidth(0.6);
-        doc.moveTo(X.debit + 6, lineY).lineTo(X.debit + col.debit - 2, lineY).stroke();
-        doc.moveTo(X.credit + 6, lineY).lineTo(X.credit + col.credit - 2, lineY).stroke();
+
+        const drawTotalLine = (lineY) => {
+          doc.moveTo(X.debit + 6, lineY).lineTo(X.debit + col.debit - 2, lineY).stroke();
+          doc.moveTo(X.credit + 6, lineY).lineTo(X.credit + col.credit - 2, lineY).stroke();
+        };
+
+        if (totalsLine === "above") {
+          drawTotalLine(y - 2);
+        } else if (totalsLine === "below") {
+          drawTotalLine(y + h - 2);
+        } else if (totalsLine === "both") {
+          drawTotalLine(y - 2);
+          drawTotalLine(y + h - 2);
+        }
+
         doc.restore();
       }
 
@@ -3310,13 +3322,45 @@ function drawFooter(pageNo) {
       y = drawRow(y, r);
     }
 
-    const subTotalRow = { date: "", particulars: "", vchType: "", vchNo: "", dr: totalDr, cr: totalCr };
-    if (y + rowHeight(" ") > bottomLimit()) {
-      drawFooter(pageNo); doc.addPage(); pageNo++; drawHeader(); y = drawTableHeader(doc.y);
-    }
-    y = drawRow(y, subTotalRow, { bold: true, totalsLine: "above" });
+        const subTotalRow = {
+      date: "",
+      particulars: "",
+      vchType: "",
+      vchNo: "",
+      dr: totalDr,
+      cr: totalCr,
+    };
 
-    if (diff > 0) {
+    // ✅ CASE 1: closing balance ZERO
+    // subtotal hi final grand total hai, isliye same row dubara mat print karo
+    if (diff === 0) {
+      if (y + rowHeight(" ") > bottomLimit()) {
+        drawFooter(pageNo);
+        doc.addPage();
+        pageNo++;
+        drawHeader();
+        y = drawTableHeader(doc.y);
+      }
+
+      y = drawRow(y, subTotalRow, {
+        bold: true,
+        totalsLine: "both", // ✅ upar + niche line
+      });
+    } else {
+      // ✅ CASE 2: closing balance exists
+      if (y + rowHeight(" ") > bottomLimit()) {
+        drawFooter(pageNo);
+        doc.addPage();
+        pageNo++;
+        drawHeader();
+        y = drawTableHeader(doc.y);
+      }
+
+      y = drawRow(y, subTotalRow, {
+        bold: true,
+        totalsLine: "above",
+      });
+
       const closingRow = {
         date: "",
         particulars: drGreater ? "By Closing Balance" : "To Closing Balance",
@@ -3327,16 +3371,39 @@ function drawFooter(pageNo) {
       };
 
       if (y + rowHeight(closingRow.particulars) > bottomLimit()) {
-        drawFooter(pageNo); doc.addPage(); pageNo++; drawHeader(); y = drawTableHeader(doc.y);
+        drawFooter(pageNo);
+        doc.addPage();
+        pageNo++;
+        drawHeader();
+        y = drawTableHeader(doc.y);
       }
-      y = drawRow(y, closingRow, { bold: true, totalsLine: "below" });
-    }
 
-    const grandRow = { date: "", particulars: "", vchType: "", vchNo: "", dr: grandTotal, cr: grandTotal };
-    if (y + rowHeight(" ") > bottomLimit()) {
-      drawFooter(pageNo); doc.addPage(); pageNo++; drawHeader(); y = drawTableHeader(doc.y);
+      y = drawRow(y, closingRow, {
+        bold: true,
+      });
+
+      const grandRow = {
+        date: "",
+        particulars: "",
+        vchType: "",
+        vchNo: "",
+        dr: grandTotal,
+        cr: grandTotal,
+      };
+
+      if (y + rowHeight(" ") > bottomLimit()) {
+        drawFooter(pageNo);
+        doc.addPage();
+        pageNo++;
+        drawHeader();
+        y = drawTableHeader(doc.y);
+      }
+
+      y = drawRow(y, grandRow, {
+        bold: true,
+        totalsLine: "both", // ✅ upar + niche line
+      });
     }
-    y = drawRow(y, grandRow, { bold: true, totalsLine: "below" });
 
     drawFooter(pageNo);
     doc.end();
