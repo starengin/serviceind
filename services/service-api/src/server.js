@@ -3633,7 +3633,7 @@ app.get("/customer-portal/export-ledger-pdf", requireCustomer, async (req, res) 
    ROOT
 ========================= */
 app.get("/", (req, res) => {
-  res.send("SERVICE INDIA API RUNNING 🚀");
+  res.send("SERVICE INDIA API RUNNING SUCCESSFULLY 🚀");
 });
 // ✅ Multer error handler (so "too many files" doesn't become 500)
 app.use((err, req, res, next) => {
