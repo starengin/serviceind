@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const { PrismaClient } = require("@prisma/client");
+const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
 // EMAIL TEMPLATES (safe load)
@@ -66,6 +67,14 @@ const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || BRAND_NAME || "SERVICE 
 const RESEND_FROM_FMT = `"${RESEND_FROM_NAME}" <${RESEND_FROM}>`;
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || "transaction-pdfs";
+
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    : null;
 
 const dns = require("dns");
 dns.setDefaultResultOrder("ipv4first");
@@ -847,6 +856,72 @@ function fileToResendAttachmentFromDisk(file) {
   return {
     filename: file.originalname || "attachment.pdf",
     content: fs.readFileSync(file.path).toString("base64"),
+  };
+}
+function makeStoragePath(prefix, originalName = "file.pdf") {
+  const ext = path.extname(originalName || "") || ".pdf";
+  const base = path
+    .basename(originalName || "file.pdf", ext)
+    .replace(/[^a-zA-Z0-9-_]/g, "_")
+    .slice(0, 80);
+
+  return `${prefix}/${Date.now()}_${crypto.randomBytes(6).toString("hex")}_${base}${ext}`;
+}
+
+async function uploadBufferToSupabase(file, prefix = "txn") {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
+
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(storagePath, file.buffer, {
+      contentType: file.mimetype || "application/pdf",
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  return {
+    storagePath,
+    originalName: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size,
+  };
+}
+
+async function downloadFromSupabase(storagePath) {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const { data, error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .download(storagePath);
+
+  if (error) throw error;
+  if (!data) throw new Error("File not found in storage");
+
+  const arr = await data.arrayBuffer();
+  return Buffer.from(arr);
+}
+
+async function deleteFromSupabase(storagePath) {
+  if (!supabase || !storagePath) return;
+
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .remove([storagePath]);
+
+  if (error) {
+    console.error("SUPABASE DELETE ERROR:", error.message || error);
+  }
+}
+
+async function fileToResendAttachmentFromStorage(pdfRow) {
+  const content = await downloadFromSupabase(pdfRow.filePath);
+
+  return {
+    filename: pdfRow.originalName || "attachment.pdf",
+    content: content.toString("base64"),
   };
 }
 const app = express();
@@ -1786,7 +1861,13 @@ function extractFromPdfText(text) {
 
 // ✅ Scan PDF -> extract basic fields (autofill)
 
-const uploadDisk = multer({ dest: UPLOAD_DIR });
+const uploadDisk = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+    files: 50,
+  },
+});
 // ✅ Scan Transaction PDF -> extract type, party, date, voucherNo, amount (LOCATION/HEADING BASED)
 const uploadMem = multer({ storage: multer.memoryStorage() });
 
@@ -2579,19 +2660,21 @@ app.post("/transactions", requireAdmin, uploadDisk.array("pdfs"), async (req, re
       },
     });
 
-    if (req.files?.length) {
-      for (const file of req.files) {
-        await prisma.transactionPDF.create({
-          data: {
-            transactionId: txn.id,
-            filePath: file.filename,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-          },
-        });
-      }
-    }
+if (req.files?.length) {
+  for (const file of req.files) {
+    const uploaded = await uploadBufferToSupabase(file, `transactions/${txn.id}`);
+
+    await prisma.transactionPDF.create({
+      data: {
+        transactionId: txn.id,
+        filePath: uploaded.storagePath,
+        originalName: uploaded.originalName,
+        mimeType: uploaded.mimeType,
+        size: uploaded.size,
+      },
+    });
+  }
+}
 
     // ✅ respond immediately (never block)
     const shouldSend =
@@ -2648,7 +2731,15 @@ const meta2 = {
 
         const html = buildTxnEmailHTML(type, meta2, party);
 
-        const attachments = (req.files || []).map(fileToResendAttachmentFromDisk);
+        const pdfRows = await prisma.transactionPDF.findMany({
+  where: { transactionId: txn.id },
+  orderBy: { id: "asc" },
+});
+
+const attachments = [];
+for (const p of pdfRows) {
+  attachments.push(await fileToResendAttachmentFromStorage(p));
+}
 
         await resend.emails.send({
           from: RESEND_FROM_FMT,
@@ -2712,16 +2803,14 @@ app.post("/transactions/:id/send-email", requireAdmin, async (req, res) => {
 
         const html = buildTxnEmailHTML(txn.type, meta2, party);
 
-        const attachments = (txn.pdfs || [])
-          .map((p) => {
-            const diskPath = path.join(UPLOAD_DIR, p.filePath);
-            if (!fs.existsSync(diskPath)) return null;
-            return {
-              filename: p.originalName || "attachment.pdf",
-              content: fs.readFileSync(diskPath).toString("base64"),
-            };
-          })
-          .filter(Boolean);
+const attachments = [];
+for (const p of txn.pdfs || []) {
+  try {
+    attachments.push(await fileToResendAttachmentFromStorage(p));
+  } catch (err) {
+    console.error("ATTACHMENT LOAD FAILED:", p.filePath, err.message || err);
+  }
+}
 
         await resend.emails.send({
           from: RESEND_FROM_FMT,
@@ -2772,12 +2861,13 @@ app.delete("/transactions/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
 
-    const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
-    for (const p of pdfs) {
-      const fpath = path.join(UPLOAD_DIR, p.filePath);
-      if (fs.existsSync(fpath)) fs.unlinkSync(fpath);
-    }
-    await prisma.transactionPDF.deleteMany({ where: { transactionId: id } });
+const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
+
+for (const p of pdfs) {
+  await deleteFromSupabase(p.filePath);
+}
+
+await prisma.transactionPDF.deleteMany({ where: { transactionId: id } });
 
     await prisma.transaction.delete({ where: { id } });
 
@@ -2797,20 +2887,23 @@ app.post("/transactions/:id/pdfs", uploadDisk.array("pdfs"), async (req, res) =>
     if (!txn) return res.status(404).json({ error: "Transaction not found" });
 
     const created = [];
-    if (req.files?.length) {
-      for (const file of req.files) {
-        const p = await prisma.transactionPDF.create({
-          data: {
-            transactionId: id,
-            filePath: file.filename,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-          },
-        });
-        created.push(p);
-      }
-    }
+if (req.files?.length) {
+  for (const file of req.files) {
+    const uploaded = await uploadBufferToSupabase(file, `transactions/${id}`);
+
+    const p = await prisma.transactionPDF.create({
+      data: {
+        transactionId: id,
+        filePath: uploaded.storagePath,
+        originalName: uploaded.originalName,
+        mimeType: uploaded.mimeType,
+        size: uploaded.size,
+      },
+    });
+
+    created.push(p);
+  }
+}
 
     const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
     res.json({ ok: true, added: created.length, pdfs });
@@ -2831,10 +2924,8 @@ app.delete("/transactions/:id/pdfs/:pdfId", async (req, res) => {
     });
     if (!pdf) return res.status(404).json({ error: "PDF not found" });
 
-    const fpath = path.join(UPLOAD_DIR, pdf.filePath);
-    if (fs.existsSync(fpath)) fs.unlinkSync(fpath);
-
-    await prisma.transactionPDF.delete({ where: { id: pdfId } });
+await deleteFromSupabase(pdf.filePath);
+await prisma.transactionPDF.delete({ where: { id: pdfId } });
 
     const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
     res.json({ ok: true, pdfs });
@@ -2876,20 +2967,15 @@ app.get("/pdfs/:pdfId", async (req, res) => {
     }
 
     // ✅ ADMIN can view all (no extra check)
-    if (payload.role !== "ADMIN" && payload.role !== "CUSTOMER") {
-      return res.status(403).send("Forbidden");
-    }
+const fileBuffer = await downloadFromSupabase(pdf.filePath);
 
-    const filePath = path.join(UPLOAD_DIR, pdf.filePath);
-    if (!fs.existsSync(filePath)) return res.status(404).send("File missing");
+res.setHeader("Content-Type", pdf.mimeType || "application/pdf");
+res.setHeader(
+  "Content-Disposition",
+  `inline; filename="${String(pdf.originalName || "document.pdf").replace(/"/g, "")}"`
+);
 
-    res.setHeader("Content-Type", pdf.mimeType || "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${String(pdf.originalName || "document.pdf").replace(/"/g, "")}"`
-    );
-
-    res.sendFile(filePath);
+return res.send(fileBuffer);
   } catch (e) {
     console.error(e);
     return res.status(500).send("Failed");
@@ -3439,6 +3525,30 @@ app.get("/debug/txns", async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message || "debug failed" });
+  }
+});
+app.get("/debug/storage", async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(500).json({ ok: false, message: "Supabase not configured" });
+    }
+
+    const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).list("", {
+      limit: 20,
+      offset: 0,
+      sortBy: { column: "name", order: "desc" },
+    });
+
+    if (error) throw error;
+
+    res.json({
+      ok: true,
+      bucket: SUPABASE_BUCKET,
+      count: data?.length || 0,
+      files: data || [],
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message || "storage debug failed" });
   }
 });
 /* =========================
