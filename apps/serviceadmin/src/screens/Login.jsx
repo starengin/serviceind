@@ -223,7 +223,7 @@ export default function Login() {
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="corporate@serviceind.co.in"
+                placeholder="admin@domain.co.in"
                 autoComplete="username"
                 style={inputStyle}
               />

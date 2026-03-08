@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 
 // ---------- helpers ----------
@@ -28,6 +28,65 @@ function bytes(n) {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
+function textToEditorHtml(text = "") {
+  return escHtml(text).replace(/\n/g, "<br>");
+}
+
+function normalizeEditorHtml(html = "") {
+  let out = String(html || "");
+
+  // browser generated junk cleanup
+  out = out.replace(/<div><br><\/div>/gi, "<br>");
+  out = out.replace(/<div>/gi, "<br>");
+  out = out.replace(/<\/div>/gi, "");
+  out = out.replace(/<p[^>]*>/gi, "<br>");
+  out = out.replace(/<\/p>/gi, "");
+  out = out.replace(/&nbsp;/gi, " ");
+
+  // collapse too many breaks
+  out = out.replace(/(<br>\s*){3,}/gi, "<br><br>");
+
+  // remove leading breaks
+  out = out.replace(/^(\s*<br>\s*)+/gi, "");
+
+  return out.trim();
+}
+
+function getPlainTextFromHtml(html = "") {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || "").trim();
+}
+
+function insertHtmlAtCursor(html) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+
+  const frag = document.createDocumentFragment();
+  let node;
+  let lastNode = null;
+
+  while ((node = temp.firstChild)) {
+    lastNode = frag.appendChild(node);
+  }
+
+  range.insertNode(frag);
+
+  if (lastNode) {
+    const newRange = document.createRange();
+    newRange.setStartAfter(lastNode);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  }
+}
+
 const BRAND_NAME = "SERVICE INDIA";
 const REPLY_TO = "corporate@serviceind.co.in";
 const BRAND_WEBSITE = "https://www.serviceind.co.in";
@@ -44,11 +103,13 @@ export default function EmailCenter() {
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState(`${BRAND_NAME} – Notification`);
-  const [message, setMessage] = useState("");
+  const [messageHtml, setMessageHtml] = useState("");
   const [mainPdf, setMainPdf] = useState(null);
   const [extraFiles, setExtraFiles] = useState([]);
   const [sending, setSending] = useState(false);
   const [okMsg, setOkMsg] = useState("");
+
+  const editorRef = useRef(null);
 
   async function loadLeads() {
     try {
@@ -68,15 +129,47 @@ export default function EmailCenter() {
     loadLeads();
   }, []);
 
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== messageHtml) {
+      editorRef.current.innerHTML = messageHtml || "";
+    }
+  }, [messageHtml]);
+
+  function focusEditor() {
+    editorRef.current?.focus();
+  }
+
+  function syncFromEditor() {
+    const html = normalizeEditorHtml(editorRef.current?.innerHTML || "");
+    setMessageHtml(html);
+  }
+
+  function runCmd(command, value = null) {
+    focusEditor();
+    document.execCommand(command, false, value);
+    syncFromEditor();
+  }
+
+  function setFontSize(size) {
+    focusEditor();
+    document.execCommand("styleWithCSS", false, true);
+    document.execCommand("fontSize", false, size);
+    syncFromEditor();
+  }
+
   function clearComposer() {
     setSelectedLead(null);
     setTo("");
     setSubject(`${BRAND_NAME} – Notification`);
-    setMessage("");
+    setMessageHtml("");
     setMainPdf(null);
     setExtraFiles([]);
     setOkMsg("");
     setErr("");
+
+    if (editorRef.current) {
+      editorRef.current.innerHTML = "";
+    }
   }
 
   function composeFromLead(l) {
@@ -107,7 +200,34 @@ export default function EmailCenter() {
       `${BRAND_WEBSITE.replace("https://", "")}`,
     ].join("\n");
 
-    setMessage(baseMsg);
+    const html = textToEditorHtml(baseMsg);
+    setMessageHtml(html);
+
+    if (editorRef.current) {
+      editorRef.current.innerHTML = html;
+    }
+  }
+
+  function onEditorInput() {
+    syncFromEditor();
+  }
+
+  function onEditorKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      focusEditor();
+      insertHtmlAtCursor("<br>");
+      syncFromEditor();
+    }
+  }
+
+  function onEditorPaste(e) {
+    e.preventDefault();
+    const text = e.clipboardData?.getData("text/plain") || "";
+    const safe = escHtml(text).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+    focusEditor();
+    insertHtmlAtCursor(safe);
+    syncFromEditor();
   }
 
   const previewHtml = useMemo(() => {
@@ -118,7 +238,7 @@ export default function EmailCenter() {
       ? `We received your requirement and will assist you shortly.`
       : `Please find the message below.`;
 
-    const bodyText = escHtml(message || "").replace(/\n/g, "<br/>");
+    const bodyHtml = normalizeEditorHtml(messageHtml || "");
 
     const summaryBlock = lead
       ? `
@@ -201,7 +321,7 @@ box-shadow:
           <tbody>
             <tr>
               <td width="100" valign="middle">
-                <img src="https://www.serviceind.co.in/brand/logo.jpeg"
+                <img src="${LOGO_URL}"
                      alt="${BRAND_NAME}"
                      style="max-width:80px; display:block; border-radius:10px; box-shadow:0 10px 18px rgba(0,0,0,0.22);">
               </td>
@@ -247,7 +367,7 @@ box-shadow:
       <td style="padding:0;">
         <div style="padding:22px 20px 18px 20px; color:#111827;">
           <div style="font-size:14px;line-height:1.85;color:#1f2937;">
-            ${bodyText || "—"}
+            ${bodyHtml || "—"}
           </div>
 
           ${summaryBlock}
@@ -345,7 +465,7 @@ box-shadow:
   </tbody>
 </table>
     `;
-  }, [message, selectedLead]);
+  }, [messageHtml, selectedLead]);
 
   function removeExtra(i) {
     setExtraFiles((prev) => prev.filter((_, idx) => idx !== i));
@@ -355,9 +475,11 @@ box-shadow:
     setOkMsg("");
     setErr("");
 
+    const plainText = getPlainTextFromHtml(messageHtml);
+
     if (!to.trim()) return setErr("To email required");
     if (!subject.trim()) return setErr("Subject required");
-    if (!message.trim()) return setErr("Message required");
+    if (!plainText.trim()) return setErr("Message required");
 
     setSending(true);
     try {
@@ -496,15 +618,87 @@ box-shadow:
               <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} />
             </label>
 
-            <label>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>Message</div>
-              <textarea
-                className="input"
-                rows={8}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-              />
-            </label>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)", marginBottom: 6 }}>Message</div>
+
+              <div
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  background: "#fff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    padding: 10,
+                    borderBottom: "1px solid var(--line)",
+                    background: "rgba(2,6,23,0.03)",
+                  }}
+                >
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("bold")} title="Bold">
+                    <b>B</b>
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("italic")} title="Italic">
+                    <i>I</i>
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("underline")} title="Underline">
+                    <u>U</u>
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setFontSize(2)} title="Small text">
+                    A-
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setFontSize(3)} title="Normal text">
+                    A
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setFontSize(5)} title="Large text">
+                    A+
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("insertUnorderedList")} title="Bullet list">
+                    • List
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("insertOrderedList")} title="Number list">
+                    1. List
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("removeFormat")} title="Clear format">
+                    Clear Format
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("undo")} title="Undo">
+                    Undo
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("redo")} title="Redo">
+                    Redo
+                  </button>
+                </div>
+
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={onEditorInput}
+                  onKeyDown={onEditorKeyDown}
+                  onPaste={onEditorPaste}
+                  data-placeholder="Type your email here..."
+                  style={{
+                    minHeight: 180,
+                    padding: 12,
+                    outline: "none",
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    color: "#0f172a",
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                  }}
+                />
+              </div>
+
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+                Enter = single line break. Paste will keep plain text only.
+              </div>
+            </div>
 
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "grid", gap: 6 }}>
@@ -599,6 +793,32 @@ box-shadow:
       <style>{`
         @media (max-width: 980px){
           .emailCenterGrid { grid-template-columns: 1fr !important; }
+        }
+
+        [contenteditable][data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #94a3b8;
+          pointer-events: none;
+          display: block;
+        }
+
+        [contenteditable] ul,
+        [contenteditable] ol {
+          margin: 8px 0 8px 20px;
+        }
+
+        [contenteditable] b,
+        [contenteditable] strong {
+          font-weight: 700;
+        }
+
+        [contenteditable] i,
+        [contenteditable] em {
+          font-style: italic;
+        }
+
+        [contenteditable] u {
+          text-decoration: underline;
         }
       `}</style>
     </div>
