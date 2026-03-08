@@ -862,8 +862,18 @@ function fileToResendAttachmentFromDisk(file) {
     content: fs.readFileSync(file.path).toString("base64"),
   };
 }
+
 function makeStoragePath(prefix, originalName = "file.pdf") {
-  async function uploadFileToSupabase(file, prefix = "txn") {
+  const ext = path.extname(originalName || "") || ".pdf";
+  const base = path
+    .basename(originalName || "file.pdf", ext)
+    .replace(/[^a-zA-Z0-9-_]/g, "_")
+    .slice(0, 80);
+
+  return `${prefix}/${Date.now()}_${crypto.randomBytes(6).toString("hex")}_${base}${ext}`;
+}
+
+async function uploadFileToSupabase(file, prefix = "txn") {
   if (!supabase) throw new Error("Supabase not configured");
 
   const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
@@ -892,14 +902,6 @@ function makeStoragePath(prefix, originalName = "file.pdf") {
     mimeType: file.mimetype,
     size: file.size,
   };
-}
-  const ext = path.extname(originalName || "") || ".pdf";
-  const base = path
-    .basename(originalName || "file.pdf", ext)
-    .replace(/[^a-zA-Z0-9-_]/g, "_")
-    .slice(0, 80);
-
-  return `${prefix}/${Date.now()}_${crypto.randomBytes(6).toString("hex")}_${base}${ext}`;
 }
 
 async function downloadFromSupabase(storagePath) {
@@ -944,34 +946,46 @@ app.use(express.urlencoded({ extended: true }));
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
   "http://localhost:3000",
-  "http://localhost:5174", // ✅ ADD THIS
+  "http://localhost:5174",
 
   "https://www.serviceind.co.in",
   "https://serviceind.co.in",
-
   "https://portal.serviceind.co.in",
   "https://admin.serviceind.co.in",
-
 ]);
 
 const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // curl/postman
+    try {
+      if (!origin) return cb(null, true);
 
-    if (ALLOWED_ORIGINS.has(origin)) return cb(null, true);
+      if (ALLOWED_ORIGINS.has(origin)) return cb(null, true);
 
-    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return cb(null, true);
+      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return cb(null, true);
 
-    // ✅ IMPORTANT: do NOT throw error (avoids missing CORS headers)
-    return cb(null, false);
+      return cb(null, false);
+    } catch (e) {
+      console.error("CORS ORIGIN ERROR:", e?.message || e);
+      return cb(null, false);
+    }
   },
-  credentials: false, // ✅ keep false (you don't need cookies)
+  credentials: false,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+app.use((req, res, next) => {
+  try {
+    decodeURIComponent(req.path);
+    next();
+  } catch (e) {
+    console.warn("BAD URL BLOCKED:", req.url);
+    return res.status(400).send("Bad Request");
+  }
+});
+
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+
 
 // ✅ PASTE HERE (move)
 const PORT = process.env.PORT || 5000;
@@ -3014,47 +3028,7 @@ app.post("/transactions/:id/pdfs", uploadDisk.array("pdfs"), async (req, res) =>
     const txn = await prisma.transaction.findUnique({ where: { id } });
     if (!txn) return res.status(404).json({ error: "Transaction not found" });
 
-function makeStoragePath(prefix, originalName = "file.pdf") {
-  const ext = path.extname(originalName || "") || ".pdf";
-  const base = path
-    .basename(originalName || "file.pdf", ext)
-    .replace(/[^a-zA-Z0-9-_]/g, "_")
-    .slice(0, 80);
-
-  return `${prefix}/${Date.now()}_${crypto.randomBytes(6).toString("hex")}_${base}${ext}`;
-}
-
-async function uploadFileToSupabase(file, prefix = "txn") {
-  if (!supabase) throw new Error("Supabase not configured");
-
-  const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
-
-  let fileContent;
-  if (file.buffer) {
-    fileContent = file.buffer;
-  } else if (file.path) {
-    fileContent = fs.readFileSync(file.path);
-  } else {
-    throw new Error("No file buffer/path found for upload");
-  }
-
-  const { error } = await supabase.storage
-    .from(SUPABASE_BUCKET)
-    .upload(storagePath, fileContent, {
-      contentType: file.mimetype || "application/pdf",
-      upsert: false,
-    });
-
-  if (error) throw error;
-
-  return {
-    storagePath,
-    originalName: file.originalname,
-    mimeType: file.mimetype,
-    size: file.size,
-  };
-}
-
+    
     const pdfs = await prisma.transactionPDF.findMany({ where: { transactionId: id } });
     res.json({ ok: true, added: created.length, pdfs });
   } catch (e) {
