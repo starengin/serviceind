@@ -86,22 +86,7 @@ const BRAND_WHATSAPP = "https://wa.me/919702485922";
 const LOGO_URL = "https://www.serviceind.co.in/brand/logo.jpeg";
 
 function getDefaultHtml() {
-  return textToEditorHtml(
-    [
-      "Dear Customer,",
-      "",
-      "Greetings from SERVICE INDIA.",
-      "",
-      "Please find the relevant details / attachment with this email.",
-      "",
-      "For any clarification, please reply to this email or contact us at corporate@serviceind.co.in.",
-      "",
-      "Warm Regards,",
-      "SERVICE INDIA",
-      "corporate@serviceind.co.in",
-      "www.serviceind.co.in",
-    ].join("\n")
-  );
+  return "";
 }
 
 export default function EmailCenter() {
@@ -1026,6 +1011,8 @@ const S = {
     background:
       "radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.03), transparent 55%), linear-gradient(180deg,#ffffff,#fbfdff)",
     boxShadow: "0 10px 24px rgba(17,24,39,0.04)",
+    overflow: "hidden",
+minWidth: 0,
   },
 
   attachHead: {
@@ -1116,31 +1103,38 @@ const S = {
     fontWeight: 700,
   },
 
-  fileTags: {
-    marginTop: 12,
-    display: "grid",
-    gap: 10,
-  },
+fileTags: {
+  marginTop: 12,
+  display: "grid",
+  gap: 10,
+  width: "100%",
+  minWidth: 0,
+},
 
-  fileTag: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    border: "1px solid rgba(148,163,184,0.22)",
-    padding: "10px 12px",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.92)",
-    boxShadow: "0 6px 14px rgba(17,24,39,0.04)",
-  },
+fileTag: {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  border: "1px solid rgba(148,163,184,0.22)",
+  padding: "10px 12px",
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.92)",
+  boxShadow: "0 6px 14px rgba(17,24,39,0.04)",
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
+  overflow: "hidden",
+},
 
-  fileTagMain: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    minWidth: 0,
-    flex: 1,
-  },
+fileTagMain: {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+  flex: 1,
+  overflow: "hidden",
+},
 
   fileTagIcon: {
     width: 34,
@@ -1152,14 +1146,15 @@ const S = {
     flexShrink: 0,
   },
 
-  fileTagName: {
-    fontSize: 12,
-    fontWeight: 900,
-    color: "#111827",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
+fileTagName: {
+  fontSize: 12,
+  fontWeight: 900,
+  color: "#111827",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: "100%",
+},
 
   fileTagMeta: {
     marginTop: 3,
