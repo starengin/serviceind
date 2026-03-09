@@ -1295,8 +1295,7 @@ const uploadEmail = multer({
   },
 });
 
-function toResendAttachment(file) {
-  async function buildEmailAttachments(mainPdf, extraFiles = []) {
+async function buildEmailAttachments(mainPdf, extraFiles = []) {
   const files = [];
 
   if (mainPdf) files.push(mainPdf);
@@ -1308,7 +1307,6 @@ function toResendAttachment(file) {
     let finalFile = file;
 
     try {
-      // ✅ PDF compression
       if (isPdfFile(file)) {
         finalFile = await maybeCompressPdf(file);
       }
@@ -1322,12 +1320,6 @@ function toResendAttachment(file) {
 
   return attachments;
 }
-  return {
-    filename: file.originalname || "attachment",
-    content: Buffer.from(file.buffer).toString("base64"),
-  };
-}
-
 app.post(
   "/admin/emails/send",
   requireAdmin,
@@ -1336,32 +1328,55 @@ app.post(
     { name: "extraFiles", maxCount: 50 },
   ]),
   async (req, res) => {
+    let attachments = [];
+    let filesToCleanup = [];
+
     try {
       const { to, subject, html } = req.body || {};
+
       console.log("EMAIL BODY:", req.body);
-console.log("EMAIL FILES:", req.files);
+      console.log("EMAIL FILES:", req.files);
+
       if (!to || !subject || !html) {
         return res.status(400).json({ message: "to, subject, html required" });
       }
 
       const mainPdf = req.files?.mainPdf?.[0] || null;
-const extra = req.files?.extraFiles || [];
+      const extra = req.files?.extraFiles || [];
 
-const attachments = await buildEmailAttachments(mainPdf, extra);
+      filesToCleanup = [
+        ...(mainPdf ? [mainPdf] : []),
+        ...extra,
+      ];
 
-await resend.emails.send({
-  from: RESEND_FROM_FMT,
-  to: [to], // ✅ IMPORTANT FIX
-  subject,
-  html,
-  reply_to: "corporate@serviceind.co.in", // ✅ Resend correct field
-  attachments: attachments.length ? attachments : undefined,
-});
+      attachments = await buildEmailAttachments(mainPdf, extra);
+
+      const sendResult = await resend.emails.send({
+        from: RESEND_FROM_FMT,
+        to: [String(to).trim()],
+        subject: String(subject).trim(),
+        html: String(html),
+        reply_to: "corporate@serviceind.co.in",
+        attachments: attachments.length ? attachments : undefined,
+      });
+
+      console.log("ADMIN EMAIL SEND SUCCESS:", sendResult);
 
       return res.json({ ok: true, attached: attachments.length });
     } catch (e) {
-      console.error("ADMIN EMAIL SEND ERROR:", e?.message || e);
-      return res.status(500).json({ message: "Email failed", details: String(e.message || e) });
+      console.error("ADMIN EMAIL SEND ERROR FULL:", e);
+      return res.status(500).json({
+        message: "Email failed",
+        details: String(e?.message || e),
+      });
+    } finally {
+      for (const f of filesToCleanup) {
+        if (f?.path && fs.existsSync(f.path)) {
+          try {
+            fs.unlinkSync(f.path);
+          } catch {}
+        }
+      }
     }
   }
 );
