@@ -103,80 +103,75 @@ export default function Home() {
   }, [allRows, period.from, period.to]);
 
   const journalSplit = useMemo(() => {
-    let dr = 0;
-    let cr = 0;
+  let dr = 0;
+  let cr = 0;
 
-    for (const r of filteredRows) {
-      const type = getTxnType(r);
-      if (type !== "JOURNAL") continue;
+  for (const r of filteredRows) {
+    const type = getTxnType(r);
 
-      const debit = toNum(
-        r?.debit ??
-          r?.dr ??
-          r?.debitAmount ??
-          r?.debit_amount ??
-          r?.drAmount ??
-          r?.Dr ??
-          r?.DR
-      );
-
-      const credit = toNum(
-        r?.credit ??
-          r?.cr ??
-          r?.creditAmount ??
-          r?.credit_amount ??
-          r?.crAmount ??
-          r?.Cr ??
-          r?.CR
-      );
-
-      if (debit || credit) {
-        dr += debit;
-        cr += credit;
-        continue;
-      }
-
-      const amt = toAmount(r);
-      const side = String(
-        r?.side ?? r?.dc ?? r?.drcr ?? r?.DrCr ?? r?.dcFlag ?? ""
-      ).toUpperCase();
-
-      if (amt) {
-        if (side === "DR" || side === "DEBIT") dr += amt;
-        if (side === "CR" || side === "CREDIT") cr += amt;
-      }
+    if (type !== "JOURNAL" && type !== "JOURNAL_DR" && type !== "JOURNAL_CR") {
+      continue;
     }
 
-    return { dr, cr };
-  }, [filteredRows]);
+    const debit = toNum(
+      r?.debit ??
+        r?.dr ??
+        r?.debitAmount ??
+        r?.debit_amount ??
+        r?.drAmount ??
+        r?.Dr ??
+        r?.DR
+    );
 
-  const baseOutstanding = Number(data?.summary?.outstanding ?? 0);
-  const outstanding = baseOutstanding;
-  const osIsRed = outstanding > 0;
+    const credit = toNum(
+      r?.credit ??
+        r?.cr ??
+        r?.creditAmount ??
+        r?.credit_amount ??
+        r?.crAmount ??
+        r?.Cr ??
+        r?.CR
+    );
 
-  const journalRatios = useMemo(() => {
-    const dr = Number(journalSplit.dr || 0);
-    const cr = Number(journalSplit.cr || 0);
-    const t = dr + cr;
-    if (t > 0) return { drRatio: dr / t, crRatio: cr / t };
-    return { drRatio: 0, crRatio: 0 };
-  }, [journalSplit]);
+    if (debit || credit) {
+      dr += debit;
+      cr += credit;
+      continue;
+    }
 
-  const salesTrend = useMemo(() => {
-    const arr = buildTrendFromRows(filteredRows, period.from, period.to);
-    return arr.map((r) => {
-      const j = Number(r.JOURNAL || 0);
-      return { ...r, JOURNAL_CR: round2(j * journalRatios.crRatio) };
-    });
-  }, [filteredRows, period.from, period.to, journalRatios]);
+    const amt = toAmount(r);
+    const side = String(
+      r?.side ?? r?.dc ?? r?.drcr ?? r?.DrCr ?? r?.dcFlag ?? ""
+    ).toUpperCase();
 
-  const purchaseTrend = useMemo(() => {
-    const arr = buildTrendFromRows(filteredRows, period.from, period.to);
-    return arr.map((r) => {
-      const j = Number(r.JOURNAL || 0);
-      return { ...r, JOURNAL_DR: round2(j * journalRatios.drRatio) };
-    });
-  }, [filteredRows, period.from, period.to, journalRatios]);
+    if (type === "JOURNAL_DR") {
+      dr += amt;
+      continue;
+    }
+
+    if (type === "JOURNAL_CR") {
+      cr += amt;
+      continue;
+    }
+
+    // legacy JOURNAL fallback
+    if (amt) {
+      if (side === "DR" || side === "DEBIT") dr += amt;
+      if (side === "CR" || side === "CREDIT") cr += amt;
+    }
+  }
+
+  return { dr, cr };
+}, [filteredRows]);
+
+
+const salesTrend = useMemo(() => {
+  return buildTrendFromRows(filteredRows, period.from, period.to);
+}, [filteredRows, period.from, period.to]);
+
+const purchaseTrend = useMemo(() => {
+  return buildTrendFromRows(filteredRows, period.from, period.to);
+}, [filteredRows, period.from, period.to]);
 
   const kpiTotals = useMemo(() => {
     const totals = {
@@ -204,6 +199,94 @@ export default function Home() {
 
     return totals;
   }, [filteredRows, journalSplit]);
+  const outstandingRaw = Number(data?.summary?.outstanding ?? 0);
+const outstandingAbs = Math.abs(outstandingRaw);
+
+let outstandingTitle = "Net Account Position";
+let outstandingHint = "Overall balance after all current entries";
+let outstandingStatus = "";
+let outstandingDisplayValue = outstandingAbs;
+let outstandingClassName = "";
+let outstandingValueClassName = "";
+
+if (outstandingRaw > 0) {
+  outstandingStatus = "Outstanding from Your Side";
+  outstandingClassName = "kpi-glow-red";
+  outstandingValueClassName = "text-red-600";
+} else if (outstandingRaw < 0) {
+  outstandingStatus = "Balance in Your Favour";
+  outstandingClassName = "kpi-glow-green";
+  outstandingValueClassName = "text-emerald-600";
+} else {
+  outstandingStatus = "Account Settled";
+  outstandingDisplayValue = "Settled";
+  outstandingClassName = "kpi-glow-blue";
+  outstandingValueClassName = "text-blue-600";
+}
+
+const salesCurrentRaw =
+  Number(kpiTotals.sales || 0) -
+  (Number(kpiTotals.receipt || 0) +
+    Number(kpiTotals.salesReturn || 0) +
+    Number(kpiTotals.journalCr || 0));
+
+const salesCurrentAbs = Math.abs(salesCurrentRaw);
+const showSalesCurrent = salesCurrentAbs > 0;
+
+let salesCurrentTitle = "Sales Side Status";
+let salesCurrentHint =
+  "Sales, receipt, sales return and journal credit considered";
+let salesCurrentStatus = "";
+let salesCurrentClassName = "";
+let salesCurrentValueClassName = "";
+
+if (salesCurrentRaw > 0) {
+  salesCurrentTitle = "Sales Side";
+  salesCurrentHint = "Payment Due";
+  salesCurrentStatus = "Customer Payment Pending";
+  salesCurrentClassName = "kpi-glow-amber";
+  salesCurrentValueClassName = "text-amber-600";
+}
+
+else if (salesCurrentRaw < 0) {
+  salesCurrentTitle = "Sales Side";
+  salesCurrentHint = "Company Invoice";
+  salesCurrentStatus = "Invoice to be Issued by Company";
+  salesCurrentClassName = "kpi-glow-violet";
+  salesCurrentValueClassName = "text-violet-600";
+}
+
+const purchaseCurrentRaw =
+  Number(kpiTotals.purchase || 0) -
+  (Number(kpiTotals.payment || 0) +
+    Number(kpiTotals.purchaseReturn || 0) +
+    Number(kpiTotals.journalDr || 0));
+
+const purchaseCurrentAbs = Math.abs(purchaseCurrentRaw);
+const showPurchaseCurrent = purchaseCurrentAbs > 0;
+
+let purchaseCurrentTitle = "Purchase Side Status";
+let purchaseCurrentHint =
+  "Purchase, payment, purchase return and journal debit considered";
+let purchaseCurrentStatus = "";
+let purchaseCurrentClassName = "";
+let purchaseCurrentValueClassName = "";
+
+if (purchaseCurrentRaw < 0) {
+  purchaseCurrentTitle = "Purchase Side";
+  purchaseCurrentHint = "Supplier Invoice";
+  purchaseCurrentStatus = "Invoice to be Issued by Supplier";
+  purchaseCurrentClassName = "kpi-glow-cyan";
+  purchaseCurrentValueClassName = "text-cyan-600";
+}
+
+else if (purchaseCurrentRaw > 0) {
+  purchaseCurrentTitle = "Purchase Side";
+  purchaseCurrentHint = "Company Payment";
+  purchaseCurrentStatus = "Payment to be Made by Company";
+  purchaseCurrentClassName = "kpi-glow-rose";
+  purchaseCurrentValueClassName = "text-rose-600";
+}
 
   const salesPieData = useMemo(() => {
     return buildVoucherPie(
@@ -231,12 +314,12 @@ export default function Home() {
 
   const dynamicKpis = useMemo(() => {
     const items = [
-      { title: "Total Sales", value: kpiTotals.sales, hint: "Selected period sale" },
-      { title: "Total Purchase", value: kpiTotals.purchase, hint: "Selected period purchase" },
-      { title: "Total Payment", value: kpiTotals.payment, hint: "Selected period payment" },
-      { title: "Total Receipt", value: kpiTotals.receipt, hint: "Selected period receipt" },
-      { title: "Total Sales Return", value: kpiTotals.salesReturn, hint: "Selected period sales return" },
-      { title: "Total Purchase Return", value: kpiTotals.purchaseReturn, hint: "Selected period purchase return" },
+      { title: "Total Sales to you", value: kpiTotals.sales, hint: "Selected period sale" },
+      { title: "Total Purchase from you", value: kpiTotals.purchase, hint: "Selected period purchase" },
+      { title: "Total Payment to you", value: kpiTotals.payment, hint: "Selected period payment" },
+      { title: "Total Receipt from you", value: kpiTotals.receipt, hint: "Selected period receipt" },
+      { title: "Total Sales Return from you", value: kpiTotals.salesReturn, hint: "Selected period sales return" },
+      { title: "Total Purchase Return to you", value: kpiTotals.purchaseReturn, hint: "Selected period purchase return" },
       { title: "Total Journal DR", value: kpiTotals.journalDr, hint: "Selected period journal debit" },
       { title: "Total Journal CR", value: kpiTotals.journalCr, hint: "Selected period journal credit" },
     ];
@@ -331,26 +414,49 @@ export default function Home() {
         </div>
 
         <div className="relative mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <Kpi
-            title="Outstanding"
-            value={outstanding}
-            hint="Current balance"
-            className={osIsRed ? "kpi-glow-red" : "kpi-glow-green"}
-            valueClassName={osIsRed ? "text-red-600" : "text-emerald-600"}
-          />
+<Kpi
+  title={outstandingTitle}
+  status={outstandingStatus}
+  value={outstandingDisplayValue}
+  hint={outstandingHint}
+  className={outstandingClassName}
+  valueClassName={outstandingValueClassName}
+/>
 
-          {dynamicKpis.map((k) => (
-            <Kpi key={k.title} title={k.title} value={k.value} hint={k.hint} />
-          ))}
+  {showSalesCurrent ? (
+<Kpi
+  title={salesCurrentTitle}
+  status={salesCurrentStatus}
+  value={salesCurrentAbs}
+  hint={salesCurrentHint}
+  className={salesCurrentClassName}
+  valueClassName={salesCurrentValueClassName}
+/>
+) : null}
 
-          {filteredRows.length > 0 ? (
-            <Kpi
-              title="Transactions"
-              value={filteredRows.length}
-              hint="Selected period"
-            />
-          ) : null}
-        </div>
+  {showPurchaseCurrent ? (
+<Kpi
+  title={purchaseCurrentTitle}
+  status={purchaseCurrentStatus}
+  value={purchaseCurrentAbs}
+  hint={purchaseCurrentHint}
+  className={purchaseCurrentClassName}
+  valueClassName={purchaseCurrentValueClassName}
+/>
+) : null}
+
+  {dynamicKpis.map((k) => (
+    <Kpi key={k.title} title={k.title} value={k.value} hint={k.hint} />
+  ))}
+
+  {filteredRows.length > 0 ? (
+    <Kpi
+      title="Transactions"
+      value={filteredRows.length}
+      hint="Selected period"
+    />
+  ) : null}
+</div>
       </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -365,15 +471,16 @@ export default function Home() {
                 <div className="text-sm sm:text-base font-bold text-slate-900">
                   Sales Group
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  SALE • RECEIPT • SALES RETURN
-                </div>
+<div className="text-xs text-slate-500 mt-1">
+  SALE • RECEIPT • SALES RETURN • JOURNAL CR
+</div>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
                 <LegendDot label="Sale" color={COLORS.SALE} />
                 <LegendDot label="Receipt" color={COLORS.RECEIPT} />
                 <LegendDot label="Sales Return" color={COLORS.SALES_RETURN} />
+                <LegendDot label="Journal CR" color={COLORS.JOURNAL} />
               </div>
             </div>
 
@@ -396,6 +503,10 @@ export default function Home() {
                       <stop offset="5%" stopColor={COLORS.SALES_RETURN} stopOpacity={0.35} />
                       <stop offset="95%" stopColor={COLORS.SALES_RETURN} stopOpacity={0.02} />
                     </linearGradient>
+                    <linearGradient id="gJournalCr" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="5%" stopColor={COLORS.JOURNAL} stopOpacity={0.35} />
+  <stop offset="95%" stopColor={COLORS.JOURNAL} stopOpacity={0.02} />
+</linearGradient>
                   </defs>
 
                   <CartesianGrid strokeDasharray="3 3" />
@@ -406,6 +517,15 @@ export default function Home() {
                   <Area type="monotone" dataKey="SALE" stroke={COLORS.SALE} fill="url(#gSale)" strokeWidth={2.4} dot={false} isAnimationActive />
                   <Area type="monotone" dataKey="RECEIPT" stroke={COLORS.RECEIPT} fill="url(#gReceipt)" strokeWidth={2.4} dot={false} isAnimationActive />
                   <Area type="monotone" dataKey="SALES_RETURN" stroke={COLORS.SALES_RETURN} fill="url(#gSalesReturn)" strokeWidth={2.4} dot={false} isAnimationActive />
+                  <Area
+  type="monotone"
+  dataKey="JOURNAL_CR"
+  stroke={COLORS.JOURNAL}
+  fill="url(#gJournalCr)"
+  strokeWidth={2.4}
+  dot={false}
+  isAnimationActive
+/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -421,15 +541,17 @@ export default function Home() {
                 <div className="text-sm sm:text-base font-bold text-slate-900">
                   Purchase Group
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  PURCHASE • PAYMENT • PURCHASE RETURN
-                </div>
+<div className="text-xs text-slate-500 mt-1">
+  PURCHASE • PAYMENT • PURCHASE RETURN • JOURNAL DR
+</div>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
                 <LegendDot label="Purchase" color={COLORS.PURCHASE} />
                 <LegendDot label="Payment" color={COLORS.PAYMENT} />
                 <LegendDot label="Purchase Return" color={COLORS.PURCHASE_RETURN} />
+                <LegendDot label="Journal DR" color={COLORS.JOURNAL} />
+                <LegendDot label="Journal CR" color={COLORS.JOURNAL} />
               </div>
             </div>
 
@@ -452,6 +574,10 @@ export default function Home() {
                       <stop offset="5%" stopColor={COLORS.PURCHASE_RETURN} stopOpacity={0.35} />
                       <stop offset="95%" stopColor={COLORS.PURCHASE_RETURN} stopOpacity={0.02} />
                     </linearGradient>
+                    <linearGradient id="gJournalDr" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="5%" stopColor={COLORS.JOURNAL} stopOpacity={0.35} />
+  <stop offset="95%" stopColor={COLORS.JOURNAL} stopOpacity={0.02} />
+</linearGradient>
                   </defs>
 
                   <CartesianGrid strokeDasharray="3 3" />
@@ -462,6 +588,15 @@ export default function Home() {
                   <Area type="monotone" dataKey="PURCHASE" stroke={COLORS.PURCHASE} fill="url(#gPurchase)" strokeWidth={2.4} dot={false} isAnimationActive />
                   <Area type="monotone" dataKey="PAYMENT" stroke={COLORS.PAYMENT} fill="url(#gPayment)" strokeWidth={2.4} dot={false} isAnimationActive />
                   <Area type="monotone" dataKey="PURCHASE_RETURN" stroke={COLORS.PURCHASE_RETURN} fill="url(#gPurchaseReturn)" strokeWidth={2.4} dot={false} isAnimationActive />
+                  <Area
+  type="monotone"
+  dataKey="JOURNAL_DR"
+  stroke={COLORS.JOURNAL}
+  fill="url(#gJournalDr)"
+  strokeWidth={2.4}
+  dot={false}
+  isAnimationActive
+/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -478,7 +613,7 @@ export default function Home() {
               Sales Split
             </div>
             <div className="text-xs text-slate-500 mb-3 mt-1">
-              SALE • RECEIPT • SALES RETURN
+              SALE • RECEIPT • SALES RETURN • JOURNAL CR
             </div>
 
             <div className="h-80 flex items-center justify-center">
@@ -786,7 +921,8 @@ function buildTrendFromRows(rows, from, to) {
       SALE: 0,
       RECEIPT: 0,
       SALES_RETURN: 0,
-      JOURNAL: 0,
+      JOURNAL_DR: 0,
+      JOURNAL_CR: 0,
       PURCHASE: 0,
       PAYMENT: 0,
       PURCHASE_RETURN: 0,
@@ -810,10 +946,19 @@ function buildTrendFromRows(rows, from, to) {
     if (type === "SALE") bucket.SALE += amount;
     else if (type === "RECEIPT") bucket.RECEIPT += amount;
     else if (type === "SALES_RETURN") bucket.SALES_RETURN += amount;
-    else if (type === "JOURNAL") bucket.JOURNAL += amount;
+    else if (type === "JOURNAL_DR") bucket.JOURNAL_DR += amount;
+    else if (type === "JOURNAL_CR") bucket.JOURNAL_CR += amount;
     else if (type === "PURCHASE") bucket.PURCHASE += amount;
     else if (type === "PAYMENT") bucket.PAYMENT += amount;
     else if (type === "PURCHASE_RETURN") bucket.PURCHASE_RETURN += amount;
+    else if (type === "JOURNAL") {
+      const side = String(
+        r?.side ?? r?.dc ?? r?.drcr ?? r?.DrCr ?? r?.dcFlag ?? ""
+      ).toUpperCase();
+
+      if (side === "DR" || side === "DEBIT") bucket.JOURNAL_DR += amount;
+      else if (side === "CR" || side === "CREDIT") bucket.JOURNAL_CR += amount;
+    }
   }
 
   return buckets;
@@ -948,15 +1093,36 @@ function sliceColor(d) {
   return C.JOURNAL;
 }
 
-function Kpi({ title, value, hint, className = "", valueClassName = "" }) {
+function Kpi({
+  title,
+  status,
+  value,
+  hint,
+  className = "",
+  valueClassName = "",
+  statusClassName = "",
+}) {
+  const isTextValue = typeof value === "string";
+  const displayValue = isTextValue
+    ? value
+    : Number(value || 0).toLocaleString("en-IN");
+
   return (
     <div
       className={`rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] ${className}`}
     >
       <div className="text-xs font-medium text-slate-500">{title}</div>
+
+      {status ? (
+        <div className={`mt-2 text-sm font-semibold ${statusClassName || "text-slate-700"}`}>
+          {status}
+        </div>
+      ) : null}
+
       <div className={`text-xl font-bold mt-1 ${valueClassName}`}>
-        {Number(value || 0).toLocaleString("en-IN")}
+        {displayValue}
       </div>
+
       <div className="text-xs text-slate-400 mt-1">{hint}</div>
     </div>
   );

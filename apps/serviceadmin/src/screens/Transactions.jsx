@@ -35,7 +35,8 @@ const TYPES = [
   { key: "RECEIPT", label: "Receipt" },
   { key: "SALES_RETURN", label: "Sales Return" },
   { key: "PURCHASE_RETURN", label: "Purchase Return" },
-  { key: "JOURNAL", label: "Journal" },
+  { key: "JOURNAL_DR", label: "Journal (Dr.)" },
+  { key: "JOURNAL_CR", label: "Journal (Cr.)" },
 ];
 
 function drcrForType(type) {
@@ -46,10 +47,11 @@ function drcrForType(type) {
     RECEIPT: "CR",
     SALES_RETURN: "CR",
     PURCHASE_RETURN: "DR",
+    JOURNAL_DR: "DR",
+    JOURNAL_CR: "CR",
   };
   return map[type] || "";
 }
-
 function voucherLabel(type) {
   switch (type) {
     case "SALE":
@@ -64,8 +66,10 @@ function voucherLabel(type) {
       return "Credit Note No.";
     case "PURCHASE_RETURN":
       return "Debit Note No.";
-    case "JOURNAL":
-      return "Journal No.";
+    case "JOURNAL_DR":
+      return "Journal (Dr.) No.";
+    case "JOURNAL_CR":
+      return "Journal (Cr.) No.";
     default:
       return "Voucher No.";
   }
@@ -131,7 +135,8 @@ function getTypeUi(type) {
     RECEIPT: { label: "RECEIPT", bg: "rgba(16,185,129,0.12)", color: "#047857", border: "rgba(16,185,129,0.22)" },
     SALES_RETURN: { label: "SALES RETURN", bg: "rgba(168,85,247,0.12)", color: "#7e22ce", border: "rgba(168,85,247,0.22)" },
     PURCHASE_RETURN: { label: "PURCHASE RETURN", bg: "rgba(236,72,153,0.12)", color: "#be185d", border: "rgba(236,72,153,0.22)" },
-    JOURNAL: { label: "JOURNAL", bg: "rgba(100,116,139,0.12)", color: "#334155", border: "rgba(100,116,139,0.22)" },
+    JOURNAL_DR: { label: "JOURNAL (DR.)", bg: "rgba(100,116,139,0.12)", color: "#334155", border: "rgba(100,116,139,0.22)" },
+JOURNAL_CR: { label: "JOURNAL (CR.)", bg: "rgba(71,85,105,0.12)", color: "#1e293b", border: "rgba(71,85,105,0.22)" },
   };
   return map[type] || { label: type || "-", bg: "rgba(2,6,23,0.06)", color: "#0f172a", border: "rgba(2,6,23,0.10)" };
 }
@@ -350,20 +355,23 @@ export default function Transactions() {
     setOpen(true);
   }
 
-  function onTypeChange(nextType) {
-    setForm((p) => ({
-      ...p,
-      type: nextType,
-      drcr: nextType === "JOURNAL" ? p.drcr || "DR" : drcrForType(nextType),
-      narration: nextType === "JOURNAL" ? p.narration : "",
-    }));
+function onTypeChange(nextType) {
+  setForm((p) => ({
+    ...p,
+    type: nextType,
+    drcr: drcrForType(nextType),
+    narration:
+      nextType === "JOURNAL_DR" || nextType === "JOURNAL_CR"
+        ? p.narration
+        : "",
+  }));
 
-    if (nextType === "JOURNAL") {
-      setScanFile(null);
-      setScanFileName("");
-      setScanError("");
-    }
+  if (nextType === "JOURNAL_DR" || nextType === "JOURNAL_CR") {
+    setScanFile(null);
+    setScanFileName("");
+    setScanError("");
   }
+}
 
   async function onScanPdf(file) {
     if (!file) return;
@@ -473,8 +481,11 @@ export default function Transactions() {
         date: data.date || p.date,
         voucherNo: data.voucherNo || p.voucherNo,
         amount: data.amount ? String(data.amount) : p.amount,
-        drcr: (data.type || p.type) === "JOURNAL" ? p.drcr || "DR" : drcrForType(data.type || p.type),
-        narration: (data.type || p.type) === "JOURNAL" ? data.narration || p.narration : "",
+        drcr: drcrForType(data.type || p.type),
+narration:
+  data.type === "JOURNAL_DR" || data.type === "JOURNAL_CR" || p.type === "JOURNAL_DR" || p.type === "JOURNAL_CR"
+    ? data.narration || p.narration
+    : "",
       }));
     } catch (e) {
       setScanError(e?.response?.data?.message || e.message || "Scan failed");
@@ -494,12 +505,13 @@ export default function Transactions() {
     const amt = Number(String(form.amount).replace(/,/g, ""));
     if (!Number.isFinite(amt) || amt <= 0) return setErr("Amount must be a valid number greater than 0");
 
-    if (form.type === "JOURNAL") {
-      if (!form.drcr) return setErr("Dr/Cr required for Journal");
-      if (!String(form.narration || "").trim()) return setErr("Narration required for Journal");
-    }
+if (form.type === "JOURNAL_DR" || form.type === "JOURNAL_CR") {
+  if (!String(form.narration || "").trim()) {
+    return setErr("Narration required for Journal");
+  }
+}
 
-    const drcr = form.type === "JOURNAL" ? form.drcr : drcrForType(form.type);
+const drcr = drcrForType(form.type);
 
     try {
       setSaving(true);
@@ -512,10 +524,12 @@ export default function Transactions() {
         fd.append("voucherNo", form.voucherNo || "");
         fd.append("amount", String(amt));
         fd.append("drcr", drcr);
-        fd.append(
-          "narration",
-          form.type === "JOURNAL" ? String(form.narration || "") : form.narration || ""
-        );
+fd.append(
+  "narration",
+  form.type === "JOURNAL_DR" || form.type === "JOURNAL_CR"
+    ? String(form.narration || "")
+    : form.narration || ""
+);
         fd.append("sendEmail", form.sendEmail ? "1" : "0");
 
         if (scanFile) fd.append("pdfs", scanFile);
@@ -544,7 +558,10 @@ export default function Transactions() {
           voucherNo: form.voucherNo || "",
           amount: String(amt),
           drcr,
-          narration: form.type === "JOURNAL" ? String(form.narration || "") : form.narration || "",
+          narration:
+  form.type === "JOURNAL_DR" || form.type === "JOURNAL_CR"
+    ? String(form.narration || "")
+    : form.narration || "",
           sendEmail: !!form.sendEmail,
         };
 
@@ -634,7 +651,10 @@ export default function Transactions() {
     }
   }
 
-  const canScan = (mode === "create" || mode === "edit") && form.type !== "JOURNAL";
+  const canScan =
+  (mode === "create" || mode === "edit") &&
+  form.type !== "JOURNAL_DR" &&
+  form.type !== "JOURNAL_CR";
   const canEdit = mode === "create" || mode === "edit";
   const isView = mode === "view";
 
@@ -742,7 +762,7 @@ export default function Transactions() {
 
                       <td style={S.td}>
                         <span style={r?.drcr === "CR" || drcrForType(r?.type) === "CR" ? S.crBadge : S.drBadge}>
-                          {r?.type === "JOURNAL" ? r?.drcr || "-" : drcrForType(r?.type)}
+                          {drcrForType(r?.type) || r?.drcr || "-"}
                         </span>
                       </td>
 
@@ -867,41 +887,38 @@ export default function Transactions() {
             />
           </Field>
 
-          {form.type === "JOURNAL" ? (
-            <Field label="Dr / Cr (Only for Journal)">
-              <select
-                style={S.input}
-                value={form.drcr || "DR"}
-                disabled={isView}
-                onChange={(e) => setForm((p) => ({ ...p, drcr: e.target.value }))}
-              >
-                <option value="DR">DR</option>
-                <option value="CR">CR</option>
-              </select>
-            </Field>
-          ) : (
-            <Field label="Dr / Cr (Auto)" hint="Locked as per rules">
-              <input style={S.input} value={drcrForType(form.type)} disabled />
-            </Field>
-          )}
+<Field label="Dr / Cr (Auto)" hint="Locked as per transaction type">
+  <input style={S.input} value={drcrForType(form.type)} disabled />
+</Field>
 
           <Field
-            label={form.type === "JOURNAL" ? "Narration (Required for Journal)" : "Narration"}
-            hint={form.type === "JOURNAL" ? "This will appear in particulars instead of 'Journal'" : ""}
-            full
-          >
-            <input
-              style={S.input}
-              value={form.narration}
-              disabled={isView || form.type !== "JOURNAL"}
-              onChange={(e) => setForm((p) => ({ ...p, narration: e.target.value }))}
-              placeholder={
-                form.type === "JOURNAL"
-                  ? "e.g. Being adjustment entry..."
-                  : "Only Journal uses narration"
-              }
-            />
-          </Field>
+  label={
+    form.type === "JOURNAL_DR" || form.type === "JOURNAL_CR"
+      ? "Narration (Required for Journal)"
+      : "Narration"
+  }
+  hint={
+    form.type === "JOURNAL_DR" || form.type === "JOURNAL_CR"
+      ? "This will appear in particulars instead of journal label"
+      : ""
+  }
+  full
+>
+  <input
+    style={S.input}
+    value={form.narration}
+    disabled={
+      isView ||
+      (form.type !== "JOURNAL_DR" && form.type !== "JOURNAL_CR")
+    }
+    onChange={(e) => setForm((p) => ({ ...p, narration: e.target.value }))}
+    placeholder={
+      form.type === "JOURNAL_DR" || form.type === "JOURNAL_CR"
+        ? "e.g. Being adjustment entry..."
+        : "Only Journal (Dr.) / Journal (Cr.) uses narration"
+    }
+  />
+</Field>
 
           <Field label="Attachments (PDFs)" hint="Single or multiple supported" full>
             <input
@@ -1015,8 +1032,8 @@ export default function Transactions() {
         </div>
 
         <div style={S.note}>
-          Rules: Sales / Payment / Purchase Return = DR. Purchase / Receipt / Sales Return = CR.
-          Only Journal allows manual DR/CR selection and requires narration. PDF smart scan auto-fills fields and auto-attaches the scanned PDF on save.
+          Rules: Sales / Payment / Purchase Return / Journal (Dr.) = DR. Purchase / Receipt / Sales Return / Journal (Cr.) = CR.
+Journal (Dr.) and Journal (Cr.) use fixed Dr/Cr and require narration. PDF smart scan auto-fills fields and auto-attaches the scanned PDF on save.
         </div>
       </Modal>
     </div>

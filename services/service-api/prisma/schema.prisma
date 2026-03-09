@@ -24,7 +24,8 @@ enum TxnType {
   PURCHASE_RETURN
   PAYMENT
   RECEIPT
-  JOURNAL
+  JOURNAL_DR
+  JOURNAL_CR
 }
 
 model User {

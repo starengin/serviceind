@@ -11,6 +11,8 @@ const TYPE_LABEL = {
   SALES_RETURN: "Sales Return",
   PURCHASE_RETURN: "Purchase Return",
   JOURNAL: "Journal",
+  JOURNAL_DR: "Journal",
+  JOURNAL_CR: "Journal",
 };
 
 function nNum(x) {
@@ -221,24 +223,29 @@ export default function Transactions() {
   const tableRows = useMemo(() => rows || [], [rows]);
 
   function buildParticulars(r) {
-    const debit = nNum(r?.debit);
-    const credit = nNum(r?.credit);
-    const side = debit > 0 ? "To" : credit > 0 ? "By" : "To";
+  const debit = nNum(r?.debit);
+  const credit = nNum(r?.credit);
+  const side = debit > 0 ? "To" : credit > 0 ? "By" : "To";
 
-    const typeRaw = String(r?.voucherType || r?.type || "").toUpperCase();
-    const label =
-      TYPE_LABEL[typeRaw] || (typeRaw ? typeRaw.replaceAll("_", " ") : "Entry");
-    const narration = String(r?.narration || "").trim();
+  const typeRaw = String(r?.voucherType || r?.type || "").toUpperCase();
+  const narration = String(r?.narration || "").trim();
 
-    if (typeRaw === "JOURNAL") {
-      const txt = narration && narration !== "-" ? narration : "Journal";
-      return `${side} ${txt}`;
-    }
-
-    let p = `${side} ${label}`;
-    if (narration && narration !== "-") p += ` — ${narration}`;
-    return p;
+  if (
+    typeRaw === "JOURNAL" ||
+    typeRaw === "JOURNAL_DR" ||
+    typeRaw === "JOURNAL_CR"
+  ) {
+    const txt = narration && narration !== "-" ? narration : "Journal";
+    return `${side} ${txt}`;
   }
+
+  const label =
+    TYPE_LABEL[typeRaw] || (typeRaw ? typeRaw.replaceAll("_", " ") : "Entry");
+
+  let p = `${side} ${label}`;
+  if (narration && narration !== "-") p += ` — ${narration}`;
+  return p;
+}
 
   if (pageLoading) {
     return <DashboardLoader progress={loadingProgress} label="Loading Transactions" />;

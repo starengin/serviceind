@@ -781,7 +781,7 @@ function buildTxnEmailHTML(type, meta, party) {
   else if (type === "PURCHASE") template = PURCHASE_TEMPLATE;
   else if (type === "PAYMENT") template = PAYMENT_TEMPLATE;
   else if (type === "RECEIPT") template = RECEIPT_TEMPLATE;
-  else if (type === "JOURNAL") template = JOURNAL_TEMPLATE;
+  else if (type === "JOURNAL_DR" || type === "JOURNAL_CR") template = JOURNAL_TEMPLATE;
   else if (type === "PURCHASE_RETURN") template = DEBIT_NOTE_TEMPLATE;   // Debit Note
 else if (type === "SALES_RETURN") template = CREDIT_NOTE_TEMPLATE;     // Credit Note
 
@@ -858,7 +858,8 @@ function subjectForType(type, meta) {
   if (type === "PURCHASE") return `Purchase Invoice ${v} - SERVICE INDIA`;
   if (type === "PAYMENT") return `Payment Advice ${v} - SERVICE INDIA`;
   if (type === "RECEIPT") return `Receipt ${v} - SERVICE INDIA`;
-  if (type === "JOURNAL") return `Journal Entry - ${meta?.narration || v} - SERVICE INDIA`;
+  if (type === "JOURNAL_DR") return `Journal (Dr.) - ${meta?.narration || v} - SERVICE INDIA`;
+if (type === "JOURNAL_CR") return `Journal (Cr.) - ${meta?.narration || v} - SERVICE INDIA`;
   if (type === "PURCHASE_RETURN") return `Debit Note ${v} - SERVICE INDIA`;
 if (type === "SALES_RETURN") return `Credit Note ${v} - SERVICE INDIA`;
   return `Transaction ${v} - SERVICE INDIA`;
@@ -2790,6 +2791,27 @@ app.post("/transactions", requireAdmin, uploadDisk.array("pdfs"), async (req, re
   try {
         let processedFiles = req.files || [];
     const { type, voucherNo, date, amount, drcr, narration, partyId, sendEmail } = req.body;
+    const fixedDrCrByType = {
+  SALE: "DR",
+  PURCHASE: "CR",
+  PAYMENT: "DR",
+  RECEIPT: "CR",
+  SALES_RETURN: "CR",
+  PURCHASE_RETURN: "DR",
+  JOURNAL_DR: "DR",
+  JOURNAL_CR: "CR",
+};
+
+const normalizedType = String(type || "").trim().toUpperCase();
+const fixedDrCr = fixedDrCrByType[normalizedType];
+
+if (!fixedDrCr) {
+  return res.status(400).json({ message: "Invalid transaction type" });
+}
+
+if ((normalizedType === "JOURNAL_DR" || normalizedType === "JOURNAL_CR") && !String(narration || "").trim()) {
+  return res.status(400).json({ message: "Narration required for journal entry" });
+}
 
     // ✅ meta from frontend (FormData -> string)
     let meta = {};
@@ -2800,7 +2822,7 @@ app.post("/transactions", requireAdmin, uploadDisk.array("pdfs"), async (req, re
     }
     // ✅ DUPLICATE CHECK: voucherNo + date(same day) + type + partyId
     const vNo = normVoucher(voucherNo);
-    const tType = String(type || "").trim().toUpperCase();
+    const tType = normalizedType;
     const pId = Number(partyId);
 
     if (!vNo || !tType || !date || !pId) {
@@ -2834,16 +2856,16 @@ app.post("/transactions", requireAdmin, uploadDisk.array("pdfs"), async (req, re
       });
     }
     const txn = await prisma.transaction.create({
-      data: {
-        type: tType,
-        voucherNo: vNo,
-        date: new Date(date),
-        amount: Number(amount),
-        drcr,
-        narration,
-        partyId: Number(partyId),
-        createdById: 1,
-      },
+data: {
+  type: tType,
+  voucherNo: vNo,
+  date: new Date(date),
+  amount: Number(amount),
+  drcr: fixedDrCr,
+  narration: narration || null,
+  partyId: Number(partyId),
+  createdById: 1,
+},
     });
 
 if (processedFiles.length) {
@@ -3037,14 +3059,39 @@ app.put("/transactions/:id", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     const body = req.body || {};
 
+    const fixedDrCrByType = {
+      SALE: "DR",
+      PURCHASE: "CR",
+      PAYMENT: "DR",
+      RECEIPT: "CR",
+      SALES_RETURN: "CR",
+      PURCHASE_RETURN: "DR",
+      JOURNAL_DR: "DR",
+      JOURNAL_CR: "CR",
+    };
+
+    const normalizedType = String(body.type || "").trim().toUpperCase();
+    const fixedDrCr = fixedDrCrByType[normalizedType];
+
+    if (!fixedDrCr) {
+      return res.status(400).json({ error: "Invalid transaction type" });
+    }
+
+    if (
+      (normalizedType === "JOURNAL_DR" || normalizedType === "JOURNAL_CR") &&
+      !String(body.narration || "").trim()
+    ) {
+      return res.status(400).json({ error: "Narration required for journal entry" });
+    }
+
     const updated = await prisma.transaction.update({
       where: { id },
       data: {
-        type: body.type,
+        type: normalizedType,
         voucherNo: body.voucherNo,
         date: new Date(body.date),
         amount: Number(body.amount),
-        drcr: body.drcr,
+        drcr: fixedDrCr,
         narration: body.narration || null,
         partyId: Number(body.partyId),
       },
@@ -3239,7 +3286,7 @@ function particulars(txn) {
   const isDr = txn.drcr === "DR";
   const prefix = isDr ? "To" : "By";
 
-  if (txn.type === "JOURNAL") {
+  if (txn.type === "JOURNAL_DR" || txn.type === "JOURNAL_CR" || txn.type === "JOURNAL") {
     return `${prefix} ${txn.narration || "Journal"}`;
   }
 
@@ -3254,7 +3301,6 @@ function particulars(txn) {
 
   return `${prefix} ${map[txn.type] || txn.type}`;
 }
-
 function voucherTypeLabel(type) {
   const map = {
     SALE: "Sale",
@@ -3263,11 +3309,11 @@ function voucherTypeLabel(type) {
     PURCHASE_RETURN: "Purchase Return",
     PAYMENT: "Payment",
     RECEIPT: "Receipt",
-    JOURNAL: "Journal",
+    JOURNAL_DR: "Journal (Dr.)",
+    JOURNAL_CR: "Journal (Cr.)",
   };
   return map[type] || String(type || "");
 }
-
 function fmtDate(d) {
   const dt = new Date(d);
   const dd = String(dt.getDate()).padStart(2, "0");
@@ -3884,18 +3930,21 @@ app.get("/customer-portal/dashboard", requireCustomer, async (req, res) => {
       if (t.type === "PAYMENT") PAYMENT += amt;
       if (t.type === "PURCHASE_RETURN") PURCHASE_RETURN += amt;
 
-      if (t.type === "JOURNAL") {
-        if (isDr) JOURNAL_DR += amt;
-        else JOURNAL_CR += amt;
-      }
+      if (t.type === "JOURNAL_DR") {
+  JOURNAL_DR += amt;
+}
 
-      if (["SALE", "RECEIPT", "SALES_RETURN", "JOURNAL"].includes(t.type)) {
-        bump(salesMonth, m, t.type, amt);
-      }
+if (t.type === "JOURNAL_CR") {
+  JOURNAL_CR += amt;
+}
 
-      if (["PURCHASE", "PAYMENT", "PURCHASE_RETURN", "JOURNAL"].includes(t.type)) {
-        bump(purchaseMonth, m, t.type, amt);
-      }
+if (["SALE", "RECEIPT", "SALES_RETURN", "JOURNAL_CR"].includes(t.type)) {
+  bump(salesMonth, m, t.type === "JOURNAL_CR" ? "JOURNAL" : t.type, amt);
+}
+
+if (["PURCHASE", "PAYMENT", "PURCHASE_RETURN", "JOURNAL_DR"].includes(t.type)) {
+  bump(purchaseMonth, m, t.type === "JOURNAL_DR" ? "JOURNAL" : t.type, amt);
+}
     }
 
     const salesNet = SALE - RECEIPT - SALES_RETURN - JOURNAL_CR;
