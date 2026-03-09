@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
+import EmailEditor from "../components/EmailEditor";
 
 // ---------- helpers ----------
 function escHtml(s = "") {
@@ -16,10 +17,6 @@ function bytes(n) {
   const kb = v / 1024;
   if (kb < 1024) return `${kb.toFixed(1)} KB`;
   return `${(kb / 1024).toFixed(2)} MB`;
-}
-
-function textToEditorHtml(text = "") {
-  return escHtml(text).replace(/\n/g, "<br>");
 }
 
 function normalizeEditorHtml(html = "") {
@@ -43,35 +40,6 @@ function getPlainTextFromHtml(html = "") {
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
   return (tmp.textContent || tmp.innerText || "").trim();
-}
-
-function insertHtmlAtCursor(html) {
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return;
-
-  const range = sel.getRangeAt(0);
-  range.deleteContents();
-
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-
-  const frag = document.createDocumentFragment();
-  let node;
-  let lastNode = null;
-
-  while ((node = temp.firstChild)) {
-    lastNode = frag.appendChild(node);
-  }
-
-  range.insertNode(frag);
-
-  if (lastNode) {
-    const newRange = document.createRange();
-    newRange.setStartAfter(lastNode);
-    newRange.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-  }
 }
 
 function fileKey(file) {
@@ -100,7 +68,6 @@ export default function EmailCenter() {
   const [extraFiles, setExtraFiles] = useState([]);
   const [sending, setSending] = useState(false);
 
-  const editorRef = useRef(null);
   const mainPdfInputRef = useRef(null);
   const extraFilesInputRef = useRef(null);
 
@@ -114,12 +81,6 @@ export default function EmailCenter() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== messageHtml) {
-      editorRef.current.innerHTML = messageHtml || "";
-    }
-  }, [messageHtml]);
-
   function resetMainPdfInput() {
     if (mainPdfInputRef.current) {
       mainPdfInputRef.current.value = "";
@@ -130,28 +91,6 @@ export default function EmailCenter() {
     if (extraFilesInputRef.current) {
       extraFilesInputRef.current.value = "";
     }
-  }
-
-  function focusEditor() {
-    editorRef.current?.focus();
-  }
-
-  function syncFromEditor() {
-    const html = normalizeEditorHtml(editorRef.current?.innerHTML || "");
-    setMessageHtml(html);
-  }
-
-  function runCmd(command, value = null) {
-    focusEditor();
-    document.execCommand(command, false, value);
-    syncFromEditor();
-  }
-
-  function setFontSize(size) {
-    focusEditor();
-    document.execCommand("styleWithCSS", false, true);
-    document.execCommand("fontSize", false, size);
-    syncFromEditor();
   }
 
   function clearComposer() {
@@ -168,32 +107,9 @@ export default function EmailCenter() {
     resetMainPdfInput();
     resetExtraFilesInput();
 
-    if (editorRef.current) {
-      editorRef.current.innerHTML = html;
-    }
+
   }
 
-  function onEditorInput() {
-    syncFromEditor();
-  }
-
-  function onEditorKeyDown(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      focusEditor();
-      insertHtmlAtCursor("<br>");
-      syncFromEditor();
-    }
-  }
-
-  function onEditorPaste(e) {
-    e.preventDefault();
-    const text = e.clipboardData?.getData("text/plain") || "";
-    const safe = escHtml(text).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
-    focusEditor();
-    insertHtmlAtCursor(safe);
-    syncFromEditor();
-  }
 
   function chooseMainPdf() {
     mainPdfInputRef.current?.click();
@@ -336,7 +252,7 @@ box-shadow:
             border:1px dashed rgba(11,94,215,0.55);
           ">
             <p style="font-size:14px;line-height:1.65;margin:0;color:#1f2937;">
-              For any clarification, please reply to this email or contact us at
+              For any clarification, please reply at
               <a href="mailto:${escHtml(REPLY_TO)}"
                  style="color:#0b5ed7;text-decoration:none;font-weight:bold;"
                  target="_blank">
@@ -544,54 +460,13 @@ box-shadow:
               <div style={S.labelWrap}>
                 <div style={S.label}>Message</div>
 
-                <div style={S.editorWrap}>
-                  <div style={S.toolbar}>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("bold")} title="Bold">
-                      <b>B</b>
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("italic")} title="Italic">
-                      <i>I</i>
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("underline")} title="Underline">
-                      <u>U</u>
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => setFontSize(2)} title="Small text">
-                      A-
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => setFontSize(3)} title="Normal text">
-                      A
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => setFontSize(5)} title="Large text">
-                      A+
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("insertUnorderedList")} title="Bullet list">
-                      • List
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("insertOrderedList")} title="Number list">
-                      1. List
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("removeFormat")} title="Clear format">
-                      Clear
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("undo")} title="Undo">
-                      Undo
-                    </button>
-                    <button type="button" style={S.toolBtn} onClick={() => runCmd("redo")} title="Redo">
-                      Redo
-                    </button>
-                  </div>
-
-                  <div
-                    ref={editorRef}
-                    contentEditable
-                    suppressContentEditableWarning
-                    onInput={onEditorInput}
-                    onKeyDown={onEditorKeyDown}
-                    onPaste={onEditorPaste}
-                    data-placeholder="Type your email here..."
-                    style={S.editor}
-                  />
-                </div>
+                <EmailEditor
+  value={messageHtml}
+  onChange={setMessageHtml}
+  toolbarStyle={S.toolbar}
+  editorStyle={S.editorArea}
+  buttonStyle={S.toolBtn}
+/>
 
                 <div style={S.editorHint}>
                   Enter = single line break. Paste will keep plain text only.
@@ -744,6 +619,35 @@ box-shadow:
         [contenteditable] u {
           text-decoration: underline;
         }
+          .email-editor-prose p {
+  margin: 0 0 10px 0;
+}
+
+.email-editor-prose ul,
+.email-editor-prose ol {
+  margin: 8px 0 8px 20px;
+}
+
+.email-editor-prose li {
+  margin: 4px 0;
+}
+
+.email-editor-prose strong {
+  font-weight: 700;
+}
+
+.email-editor-prose em {
+  font-style: italic;
+}
+
+.email-editor-prose u {
+  text-decoration: underline;
+}
+
+.email-editor-prose:empty::before {
+  content: "Type your email here...";
+  color: #94a3b8;
+}
       `}</style>
     </div>
   );
@@ -1245,4 +1149,5 @@ fileTagName: {
     fontWeight: 900,
     fontSize: 13,
   },
+  
 };

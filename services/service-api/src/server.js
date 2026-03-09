@@ -1288,14 +1288,40 @@ app.post("/public/contact", async (req, res) => {
   });
 });
 const uploadEmail = multer({
-  storage: multer.memoryStorage(),
+  dest: UPLOAD_DIR,
   limits: {
-    files: 60,               // ✅ total files allowed (main + extra)
-    fileSize: 25 * 1024 * 1024, // ✅ 25MB per file (adjust)
+    files: 60,
+    fileSize: 25 * 1024 * 1024,
   },
 });
 
 function toResendAttachment(file) {
+  async function buildEmailAttachments(mainPdf, extraFiles = []) {
+  const files = [];
+
+  if (mainPdf) files.push(mainPdf);
+  for (const f of extraFiles || []) files.push(f);
+
+  const attachments = [];
+
+  for (const file of files) {
+    let finalFile = file;
+
+    try {
+      // ✅ PDF compression
+      if (isPdfFile(file)) {
+        finalFile = await maybeCompressPdf(file);
+      }
+
+      attachments.push(fileToResendAttachmentFromDisk(finalFile));
+    } catch (e) {
+      console.error("ATTACHMENT PROCESS FAILED:", e?.message || e);
+      attachments.push(fileToResendAttachmentFromDisk(file));
+    }
+  }
+
+  return attachments;
+}
   return {
     filename: file.originalname || "attachment",
     content: Buffer.from(file.buffer).toString("base64"),
@@ -1318,13 +1344,10 @@ console.log("EMAIL FILES:", req.files);
         return res.status(400).json({ message: "to, subject, html required" });
       }
 
-      const attachments = [];
+      const mainPdf = req.files?.mainPdf?.[0] || null;
+const extra = req.files?.extraFiles || [];
 
-      const mainPdf = req.files?.mainPdf?.[0];
-      if (mainPdf) attachments.push(toResendAttachment(mainPdf));
-
-      const extra = req.files?.extraFiles || [];
-      for (const f of extra) attachments.push(toResendAttachment(f));
+const attachments = await buildEmailAttachments(mainPdf, extra);
 
 await resend.emails.send({
   from: RESEND_FROM_FMT,

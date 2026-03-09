@@ -8,7 +8,7 @@ const base =
 
 const API = axios.create({
   baseURL: base,
-  timeout: 15000,
+  timeout: 125000,
 });
 
 API.interceptors.request.use((config) => {
