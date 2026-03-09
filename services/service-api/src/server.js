@@ -58,6 +58,14 @@ dotenv.config();
 
 dotenv.config();
 
+console.log("ENV CHECK =>", {
+  cwd: process.cwd(),
+  envFileExpected: path.resolve(process.cwd(), ".env"),
+  SUPABASE_URL: process.env.SUPABASE_URL ? "FOUND" : "MISSING",
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? "FOUND" : "MISSING",
+  SUPABASE_BUCKET: process.env.SUPABASE_BUCKET || "transaction-pdfs",
+});
+
 const BRAND_NAME = process.env.COMPANY_NAME || "SERVICE INDIA";
 const BRAND_EMAIL = process.env.BRAND_EMAIL || "corporate@serviceind.co.in";
 const BRAND_PHONE = process.env.BRAND_PHONE || "+91-9702485922";
@@ -874,7 +882,17 @@ function makeStoragePath(prefix, originalName = "file.pdf") {
 }
 
 async function uploadFileToSupabase(file, prefix = "txn") {
-  if (!supabase) throw new Error("Supabase not configured");
+  console.log("UPLOAD SUPABASE DEBUG =>", {
+    hasSupabaseClient: !!supabase,
+    SUPABASE_URL: process.env.SUPABASE_URL ? "FOUND" : "MISSING",
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? "FOUND" : "MISSING",
+    SUPABASE_BUCKET,
+    fileName: file?.originalname || "",
+  });
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const storagePath = makeStoragePath(prefix, file.originalname || "file.pdf");
 
@@ -947,6 +965,9 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:5174",
+  "http://localhost:5176",
+  "http://localhost:5177",
+
 
   "https://www.serviceind.co.in",
   "https://serviceind.co.in",
@@ -1322,7 +1343,7 @@ await resend.emails.send({
   }
 );
 
-app.get("/admin/leads", async (req, res) => {
+app.get("/admin/leads", requireAdmin, async (req, res) => {
   try {
     const items = await prisma.contactLead.findMany({
       orderBy: { createdAt: "desc" },
@@ -3139,7 +3160,35 @@ return res.send(fileBuffer);
     return res.status(500).send("Failed");
   }
 });
+function getFinancialYearRange(baseDate = new Date()) {
+  const d = new Date(baseDate);
+  const year = d.getFullYear();
+  const month = d.getMonth(); // 0-based
+  const fyStartYear = month >= 3 ? year : year - 1;
 
+  const from = new Date(fyStartYear, 3, 1, 0, 0, 0, 0);
+  const to = new Date();
+  to.setHours(23, 59, 59, 999);
+
+  return { from, to };
+}
+
+function parseDateRangeOrFY(from, to) {
+  if (from && to) {
+    const fromDate = new Date(String(from));
+    const toDate = new Date(String(to));
+    toDate.setHours(23, 59, 59, 999);
+
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      return null;
+    }
+
+    return { fromDate, toDate };
+  }
+
+  const fy = getFinancialYearRange();
+  return { fromDate: fy.from, toDate: fy.to };
+}
 /* =========================
    LEDGER HELPERS
 ========================= */
@@ -3713,115 +3762,192 @@ app.get("/debug/storage", async (req, res) => {
    CUSTOMER PORTAL DASHBOARD
 ========================= */
 app.get("/customer-portal/dashboard", requireCustomer, async (req, res) => {
-  const partyId = req.customerId;
+  try {
+    const partyId = req.customerId;
+    const range = parseDateRangeOrFY(req.query.from, req.query.to);
 
-  const txns = await prisma.transaction.findMany({
-    where: { partyId },
-    orderBy: { date: "asc" },
-  });
-
-  let totalDebit = 0, totalCredit = 0, balance = 0;
-
-  const salesMonth = new Map();
-  const purchaseMonth = new Map();
-
-  let SALE = 0, RECEIPT = 0, SALES_RETURN = 0, PURCHASE = 0, PAYMENT = 0, PURCHASE_RETURN = 0, JOURNAL_DR = 0, JOURNAL_CR = 0;
-
-  function monthKey(d) {
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return "NA";
-    return dt.toISOString().slice(0, 7);
-  }
-
-  function bump(map, key, field, amt) {
-    const prev = map.get(key) || {
-      month: key,
-      SALE: 0, RECEIPT: 0, SALES_RETURN: 0,
-      PURCHASE: 0, PAYMENT: 0, PURCHASE_RETURN: 0,
-      JOURNAL: 0,
-    };
-    prev[field] = (prev[field] || 0) + amt;
-    map.set(key, prev);
-  }
-
-  for (const t of txns) {
-    const amt = Math.abs(Number(t.amount || 0));
-    const isDr = t.drcr === "DR";
-
-    const d = isDr ? amt : 0;
-    const c = !isDr ? amt : 0;
-
-    totalDebit += d;
-    totalCredit += c;
-
-    balance += isDr ? amt : -amt;
-
-    const m = monthKey(t.date);
-
-    if (t.type === "SALE") SALE += amt;
-    if (t.type === "RECEIPT") RECEIPT += amt;
-    if (t.type === "SALES_RETURN") SALES_RETURN += amt;
-
-    if (t.type === "PURCHASE") PURCHASE += amt;
-    if (t.type === "PAYMENT") PAYMENT += amt;
-    if (t.type === "PURCHASE_RETURN") PURCHASE_RETURN += amt;
-
-    if (t.type === "JOURNAL") {
-      if (isDr) JOURNAL_DR += amt;
-      else JOURNAL_CR += amt;
+    if (!range) {
+      return res.status(400).json({ message: "Invalid date range" });
     }
 
-    if (["SALE", "RECEIPT", "SALES_RETURN", "JOURNAL"].includes(t.type)) {
-      bump(salesMonth, m, t.type, amt);
+    const { fromDate, toDate } = range;
+
+    const txns = await prisma.transaction.findMany({
+      where: {
+        partyId,
+        date: {
+          gte: fromDate,
+          lte: toDate,
+        },
+      },
+      orderBy: { date: "asc" },
+      select: {
+        id: true,
+        type: true,
+        date: true,
+        amount: true,
+        drcr: true,
+        voucherNo: true,
+        narration: true,
+      },
+    });
+
+    let totalDebit = 0,
+      totalCredit = 0,
+      balance = 0;
+
+    const salesMonth = new Map();
+    const purchaseMonth = new Map();
+
+    let SALE = 0,
+      RECEIPT = 0,
+      SALES_RETURN = 0,
+      PURCHASE = 0,
+      PAYMENT = 0,
+      PURCHASE_RETURN = 0,
+      JOURNAL_DR = 0,
+      JOURNAL_CR = 0;
+
+    function monthKey(d) {
+      const dt = new Date(d);
+      if (Number.isNaN(dt.getTime())) return "NA";
+      return dt.toISOString().slice(0, 7);
     }
-    if (["PURCHASE", "PAYMENT", "PURCHASE_RETURN", "JOURNAL"].includes(t.type)) {
-      bump(purchaseMonth, m, t.type, amt);
+
+    function bump(map, key, field, amt) {
+      const prev = map.get(key) || {
+        month: key,
+        SALE: 0,
+        RECEIPT: 0,
+        SALES_RETURN: 0,
+        PURCHASE: 0,
+        PAYMENT: 0,
+        PURCHASE_RETURN: 0,
+        JOURNAL: 0,
+      };
+      prev[field] = (prev[field] || 0) + amt;
+      map.set(key, prev);
     }
+
+    for (const t of txns) {
+      const amt = Math.abs(Number(t.amount || 0));
+      const isDr = t.drcr === "DR";
+
+      totalDebit += isDr ? amt : 0;
+      totalCredit += isDr ? 0 : amt;
+      balance += isDr ? amt : -amt;
+
+      const m = monthKey(t.date);
+
+      if (t.type === "SALE") SALE += amt;
+      if (t.type === "RECEIPT") RECEIPT += amt;
+      if (t.type === "SALES_RETURN") SALES_RETURN += amt;
+      if (t.type === "PURCHASE") PURCHASE += amt;
+      if (t.type === "PAYMENT") PAYMENT += amt;
+      if (t.type === "PURCHASE_RETURN") PURCHASE_RETURN += amt;
+
+      if (t.type === "JOURNAL") {
+        if (isDr) JOURNAL_DR += amt;
+        else JOURNAL_CR += amt;
+      }
+
+      if (["SALE", "RECEIPT", "SALES_RETURN", "JOURNAL"].includes(t.type)) {
+        bump(salesMonth, m, t.type, amt);
+      }
+
+      if (["PURCHASE", "PAYMENT", "PURCHASE_RETURN", "JOURNAL"].includes(t.type)) {
+        bump(purchaseMonth, m, t.type, amt);
+      }
+    }
+
+    const salesNet = SALE - RECEIPT - SALES_RETURN - JOURNAL_CR;
+    const salesTotal = SALE + JOURNAL_DR;
+    const salesOutstanding = Math.max(salesNet, 0);
+    const salesSettled = Math.max(salesTotal - salesOutstanding, 0);
+
+    const purchaseNet = PURCHASE - PAYMENT - PURCHASE_RETURN - JOURNAL_DR;
+    const purchaseTotal = PURCHASE + JOURNAL_CR;
+    const purchaseOutstanding = Math.max(purchaseNet, 0);
+    const purchaseSettled = Math.max(purchaseTotal - purchaseOutstanding, 0);
+
+    const salesTrend = Array.from(salesMonth.values()).sort((a, b) =>
+      a.month.localeCompare(b.month)
+    );
+    const purchaseTrend = Array.from(purchaseMonth.values()).sort((a, b) =>
+      a.month.localeCompare(b.month)
+    );
+
+    return res.json({
+      summary: {
+        outstanding: balance,
+        totalDebit,
+        totalCredit,
+        txnCount: txns.length,
+        byType: {
+          SALE,
+          RECEIPT,
+          SALES_RETURN,
+          PURCHASE,
+          PAYMENT,
+          PURCHASE_RETURN,
+          JOURNAL_DR,
+          JOURNAL_CR,
+        },
+      },
+      charts: {
+        salesTrend,
+        purchaseTrend,
+        salesPie: {
+          SALE,
+          RECEIPT,
+          SALES_RETURN,
+          JOURNAL_CR,
+          net: salesNet,
+          total: salesTotal,
+          outstanding: salesOutstanding,
+          settled: salesSettled,
+        },
+        purchasePie: {
+          PURCHASE,
+          PAYMENT,
+          PURCHASE_RETURN,
+          JOURNAL_DR,
+          net: purchaseNet,
+          total: purchaseTotal,
+          outstanding: purchaseOutstanding,
+          settled: purchaseSettled,
+        },
+      },
+      recent: txns
+        .slice()
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10),
+      period: {
+        from: fromDate.toISOString().slice(0, 10),
+        to: toDate.toISOString().slice(0, 10),
+      },
+    });
+  } catch (e) {
+    console.error("CUSTOMER PORTAL DASHBOARD ERROR:", e);
+    return res.status(500).json({
+      message: "Dashboard failed",
+      details: String(e.message || e),
+    });
   }
-
-  const salesNet = SALE - RECEIPT - SALES_RETURN - JOURNAL_CR;
-  const salesTotal = SALE + JOURNAL_DR;
-  const salesOutstanding = Math.max(salesNet, 0);
-  const salesSettled = Math.max(salesTotal - salesOutstanding, 0);
-
-  const purchaseNet = PURCHASE - PAYMENT - PURCHASE_RETURN - JOURNAL_DR;
-  const purchaseTotal = PURCHASE + JOURNAL_CR;
-  const purchaseOutstanding = Math.max(purchaseNet, 0);
-  const purchaseSettled = Math.max(purchaseTotal - purchaseOutstanding, 0);
-
-  const salesTrend = Array.from(salesMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
-  const purchaseTrend = Array.from(purchaseMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
-
-  res.json({
-    summary: {
-      outstanding: balance,
-      totalDebit,
-      totalCredit,
-      txnCount: txns.length,
-    },
-    charts: {
-      salesTrend,
-      purchaseTrend,
-      salesPie: { SALE, RECEIPT, SALES_RETURN, JOURNAL_CR, net: salesNet, total: salesTotal, outstanding: salesOutstanding, settled: salesSettled },
-      purchasePie: { PURCHASE, PAYMENT, PURCHASE_RETURN, JOURNAL_DR, net: purchaseNet, total: purchaseTotal, outstanding: purchaseOutstanding, settled: purchaseSettled },
-    },
-  });
 });
-
 /* =========================
    CUSTOMER PORTAL TRANSACTIONS
 ========================= */
 app.get("/customer-portal/transactions", requireCustomer, async (req, res) => {
   try {
     const partyId = req.customerId;
-    const { from, to } = req.query;
+    const range = parseDateRangeOrFY(req.query.from, req.query.to);
 
-    if (!from || !to) {
-      return res.status(400).json({ message: "from and to required (YYYY-MM-DD)" });
+    if (!range) {
+      return res.status(400).json({ message: "Invalid date range" });
     }
 
-    const fromDate = new Date(String(from));
-    const toDate = new Date(String(to));
+    const { fromDate, toDate } = range;
 
     const party = await prisma.user.findUnique({ where: { id: partyId } });
     if (!party) return res.status(404).json({ message: "Customer not found" });
@@ -3842,42 +3968,64 @@ app.get("/customer-portal/transactions", requireCustomer, async (req, res) => {
     }
 
     const items = await prisma.transaction.findMany({
-      where: { partyId, date: { gte: fromDate, lte: toDate } },
-      orderBy: { date: "asc" },
-      include: { pdfs: true },
+      where: {
+        partyId,
+        date: {
+          gte: fromDate,
+          lte: toDate,
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+      include: {
+        pdfs: {
+          select: {
+            id: true,
+            originalName: true,
+          },
+        },
+      },
     });
 
     let running = opening;
 
-    const mapped = items.map((t) => {
+    const ascItems = items.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    for (const t of ascItems) {
       const amt = Number(t.amount || 0);
       running += t.drcr === "DR" ? amt : -amt;
+    }
 
-      return {
-        id: t.id,
-        date: t.date ? t.date.toISOString().slice(0, 10) : "",
-        voucherNo: t.voucherNo,
-        voucherType: t.type,
-        narration: t.narration || "",
-        debit: t.drcr === "DR" ? amt : 0,
-        credit: t.drcr === "CR" ? amt : 0,
-        runningBalance: running,
-        pdfs: (t.pdfs || []).map((p) => ({
-          id: p.id,
-          name: p.originalName,
-          url: `/pdfs/${p.id}`,
-        })),
-      };
-    });
+    const mapped = items.map((t) => ({
+      id: t.id,
+      date: t.date ? t.date.toISOString().slice(0, 10) : "",
+      voucherNo: t.voucherNo,
+      voucherType: t.type,
+      narration: t.narration || "",
+      debit: t.drcr === "DR" ? Number(t.amount || 0) : 0,
+      credit: t.drcr === "CR" ? Number(t.amount || 0) : 0,
+      pdfs: (t.pdfs || []).map((p) => ({
+        id: p.id,
+        name: p.originalName,
+        url: `/pdfs/${p.id}`,
+      })),
+    }));
 
-    res.json({
+    return res.json({
       opening,
       closing: running,
       items: mapped,
+      period: {
+        from: fromDate.toISOString().slice(0, 10),
+        to: toDate.toISOString().slice(0, 10),
+      },
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Failed", details: String(e.message || e) });
+    console.error("CUSTOMER PORTAL TRANSACTIONS ERROR:", e);
+    return res.status(500).json({
+      message: "Failed",
+      details: String(e.message || e),
+    });
   }
 });
 
@@ -3886,14 +4034,25 @@ app.get("/customer-portal/export-ledger-pdf", requireCustomer, async (req, res) 
   const partyId = req.customerId;
   const { from, to } = req.query;
 
-  const toDate = to ? String(to) : new Date().toISOString().slice(0, 10);
-  const fromDate = from ? String(from) : new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const range = parseDateRangeOrFY(from, to);
+  if (!range) {
+    return res.status(400).json({ message: "Invalid date range" });
+  }
+
+  const fromDate = range.fromDate.toISOString().slice(0, 10);
+  const toDate = range.toDate.toISOString().slice(0, 10);
 
   const auth = req.headers.authorization || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : (req.query?.token ? String(req.query.token) : "");
+  const token = auth.startsWith("Bearer ")
+    ? auth.slice(7)
+    : req.query?.token
+    ? String(req.query.token)
+    : "";
 
-  res.redirect(
-    `/ledger/${partyId}/pdf?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}&token=${encodeURIComponent(token)}`
+  return res.redirect(
+    `/ledger/${partyId}/pdf?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(
+      toDate
+    )}&token=${encodeURIComponent(token)}`
   );
 });
 
