@@ -10,16 +10,6 @@ function escHtml(s = "") {
     .replaceAll('"', "&quot;");
 }
 
-function fmtDateTime(d) {
-  try {
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return "";
-    return dt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-  } catch {
-    return "";
-  }
-}
-
 function bytes(n) {
   const v = Number(n || 0);
   if (!v) return "";
@@ -35,7 +25,6 @@ function textToEditorHtml(text = "") {
 function normalizeEditorHtml(html = "") {
   let out = String(html || "");
 
-  // browser generated junk cleanup
   out = out.replace(/<div><br><\/div>/gi, "<br>");
   out = out.replace(/<div>/gi, "<br>");
   out = out.replace(/<\/div>/gi, "");
@@ -43,16 +32,14 @@ function normalizeEditorHtml(html = "") {
   out = out.replace(/<\/p>/gi, "");
   out = out.replace(/&nbsp;/gi, " ");
 
-  // collapse too many breaks
   out = out.replace(/(<br>\s*){3,}/gi, "<br><br>");
-
-  // remove leading breaks
   out = out.replace(/^(\s*<br>\s*)+/gi, "");
 
   return out.trim();
 }
 
 function getPlainTextFromHtml(html = "") {
+  if (typeof document === "undefined") return "";
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
   return (tmp.textContent || tmp.innerText || "").trim();
@@ -87,46 +74,59 @@ function insertHtmlAtCursor(html) {
   }
 }
 
+function fileKey(file) {
+  return `${file?.name || ""}__${file?.size || 0}__${file?.lastModified || 0}`;
+}
+
 const BRAND_NAME = "SERVICE INDIA";
 const REPLY_TO = "corporate@serviceind.co.in";
 const BRAND_WEBSITE = "https://www.serviceind.co.in";
 const BRAND_PHONE = "+91-9702485922";
 const BRAND_WHATSAPP = "https://wa.me/919702485922";
-const LOGO_URL = `https://www.serviceind.co.in/brand/logo.jpeg`;
+const LOGO_URL = "https://www.serviceind.co.in/brand/logo.jpeg";
+
+function getDefaultHtml() {
+  return textToEditorHtml(
+    [
+      "Dear Customer,",
+      "",
+      "Greetings from SERVICE INDIA.",
+      "",
+      "Please find the relevant details / attachment with this email.",
+      "",
+      "For any clarification, please reply to this email or contact us at corporate@serviceind.co.in.",
+      "",
+      "Warm Regards,",
+      "SERVICE INDIA",
+      "corporate@serviceind.co.in",
+      "www.serviceind.co.in",
+    ].join("\n")
+  );
+}
 
 export default function EmailCenter() {
-  const [loading, setLoading] = useState(true);
-  const [leads, setLeads] = useState([]);
   const [err, setErr] = useState("");
-
-  const [selectedLead, setSelectedLead] = useState(null);
+  const [okMsg, setOkMsg] = useState("");
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState(`${BRAND_NAME} – Notification`);
-  const [messageHtml, setMessageHtml] = useState("");
+  const [messageHtml, setMessageHtml] = useState(getDefaultHtml());
   const [mainPdf, setMainPdf] = useState(null);
   const [extraFiles, setExtraFiles] = useState([]);
   const [sending, setSending] = useState(false);
-  const [okMsg, setOkMsg] = useState("");
 
   const editorRef = useRef(null);
+  const mainPdfInputRef = useRef(null);
+  const extraFilesInputRef = useRef(null);
 
-  async function loadLeads() {
-    try {
-      setErr("");
-      setOkMsg("");
-      setLoading(true);
-      const items = await api.adminLeads();
-      setLeads(Array.isArray(items) ? items : []);
-    } catch (e) {
-      setErr(e?.message || "Failed to load leads");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 1180 : false
+  );
 
   useEffect(() => {
-    loadLeads();
+    const onResize = () => setIsMobile(window.innerWidth <= 1180);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -134,6 +134,18 @@ export default function EmailCenter() {
       editorRef.current.innerHTML = messageHtml || "";
     }
   }, [messageHtml]);
+
+  function resetMainPdfInput() {
+    if (mainPdfInputRef.current) {
+      mainPdfInputRef.current.value = "";
+    }
+  }
+
+  function resetExtraFilesInput() {
+    if (extraFilesInputRef.current) {
+      extraFilesInputRef.current.value = "";
+    }
+  }
 
   function focusEditor() {
     editorRef.current?.focus();
@@ -158,50 +170,18 @@ export default function EmailCenter() {
   }
 
   function clearComposer() {
-    setSelectedLead(null);
+    const html = getDefaultHtml();
+
     setTo("");
     setSubject(`${BRAND_NAME} – Notification`);
-    setMessageHtml("");
+    setMessageHtml(html);
     setMainPdf(null);
     setExtraFiles([]);
     setOkMsg("");
     setErr("");
 
-    if (editorRef.current) {
-      editorRef.current.innerHTML = "";
-    }
-  }
-
-  function composeFromLead(l) {
-    setOkMsg("");
-    setErr("");
-    setSelectedLead(l || null);
-
-    const leadName = l?.name || "Customer";
-    const leadEmail = l?.email || "";
-    const leadSubject = (l?.subject || "Enquiry").trim();
-
-    setTo(leadEmail);
-    setSubject(`${BRAND_NAME} – ${leadSubject}`);
-
-    const baseMsg = [
-      `Dear ${leadName},`,
-      ``,
-      `Thank you for contacting ${BRAND_NAME}.`,
-      `We have received your requirement and our team will get back to you shortly.`,
-      ``,
-      `Please find the relevant quotation / attachment with this email.`,
-      ``,
-      `If you need any clarification, simply reply to this email or contact us at ${REPLY_TO}.`,
-      ``,
-      `Warm Regards,`,
-      `${BRAND_NAME}`,
-      `${REPLY_TO}`,
-      `${BRAND_WEBSITE.replace("https://", "")}`,
-    ].join("\n");
-
-    const html = textToEditorHtml(baseMsg);
-    setMessageHtml(html);
+    resetMainPdfInput();
+    resetExtraFilesInput();
 
     if (editorRef.current) {
       editorRef.current.innerHTML = html;
@@ -230,59 +210,50 @@ export default function EmailCenter() {
     syncFromEditor();
   }
 
+  function chooseMainPdf() {
+    mainPdfInputRef.current?.click();
+  }
+
+  function chooseExtraFiles() {
+    extraFilesInputRef.current?.click();
+  }
+
+  function onMainPdfChange(e) {
+    const picked = e.target.files?.[0] || null;
+    setMainPdf(picked);
+    resetMainPdfInput();
+  }
+
+  function onExtraFilesChange(e) {
+    const incoming = Array.from(e.target.files || []);
+    if (!incoming.length) {
+      resetExtraFilesInput();
+      return;
+    }
+
+    setExtraFiles((prev) => {
+      const map = new Map(prev.map((f) => [fileKey(f), f]));
+      incoming.forEach((f) => {
+        map.set(fileKey(f), f);
+      });
+      return Array.from(map.values());
+    });
+
+    resetExtraFilesInput();
+  }
+
+  function removeMainPdf() {
+    setMainPdf(null);
+    resetMainPdfInput();
+  }
+
+  function removeExtra(i) {
+    setExtraFiles((prev) => prev.filter((_, idx) => idx !== i));
+    resetExtraFilesInput();
+  }
+
   const previewHtml = useMemo(() => {
-    const lead = selectedLead;
-
-    const titleLine = lead ? escHtml(lead.subject || "Enquiry") : "Notification";
-    const introLine = lead
-      ? `We received your requirement and will assist you shortly.`
-      : `Please find the message below.`;
-
     const bodyHtml = normalizeEditorHtml(messageHtml || "");
-
-    const summaryBlock = lead
-      ? `
-      <div style="
-        margin-top:18px;
-        border-radius:12px;
-        overflow:hidden;
-        border:1px solid rgba(17,24,39,0.10);
-        box-shadow:0 10px 18px rgba(17,24,39,0.08);
-        background:#ffffff;
-      ">
-        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
-          <tbody>
-            <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Name</b></td>
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.name || "-")}</td>
-            </tr>
-            <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Email</b></td>
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.email || "-")}</td>
-            </tr>
-            <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Phone</b></td>
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.phone || "-")}</td>
-            </tr>
-            <tr style="background:linear-gradient(90deg,#eef7ff,#ffffff);">
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>City</b></td>
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.city || "-")}</td>
-            </tr>
-            <tr style="background:linear-gradient(90deg,#ffffff,#fbfbfb);">
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;"><b>Material</b></td>
-              <td style="padding:12px 14px;border-bottom:1px solid #eeeeee;">${escHtml(lead.material || "ALL")}</td>
-            </tr>
-            <tr style="background:linear-gradient(90deg,#fff3e6,#ffffff);">
-              <td style="padding:12px 14px;"><b>Details</b></td>
-              <td style="padding:12px 14px;line-height:1.7;">
-                ${escHtml(lead.details || "-").replace(/\n/g, "<br/>")}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      `
-      : "";
 
     return `
 <table align="center" width="100%" cellpadding="0" cellspacing="0"
@@ -343,7 +314,7 @@ box-shadow:
                   font-weight:bold;
                   text-shadow:0 2px 8px rgba(0,0,0,0.30);
                 ">
-                  ${titleLine}
+                  ${escHtml(subject || "Notification")}
                 </p>
 
                 <p style="
@@ -353,7 +324,7 @@ box-shadow:
                   line-height:1.6;
                   text-shadow:0 2px 8px rgba(0,0,0,0.30);
                 ">
-                  ${escHtml(introLine)}<br/>
+                  Please find the message below.<br/>
                   Reply-To: <b>${escHtml(REPLY_TO)}</b>
                 </p>
               </td>
@@ -369,8 +340,6 @@ box-shadow:
           <div style="font-size:14px;line-height:1.85;color:#1f2937;">
             ${bodyHtml || "—"}
           </div>
-
-          ${summaryBlock}
 
           <div style="
             margin-top:18px;
@@ -465,11 +434,7 @@ box-shadow:
   </tbody>
 </table>
     `;
-  }, [messageHtml, selectedLead]);
-
-  function removeExtra(i) {
-    setExtraFiles((prev) => prev.filter((_, idx) => idx !== i));
-  }
+  }, [messageHtml, subject]);
 
   async function send() {
     setOkMsg("");
@@ -494,6 +459,8 @@ box-shadow:
       setOkMsg(`✅ Email sent successfully. Attachments: ${res?.attached || 0}`);
       setMainPdf(null);
       setExtraFiles([]);
+      resetMainPdfInput();
+      resetExtraFilesInput();
     } catch (e) {
       setErr(e?.response?.data?.message || e?.message || "Email failed");
     } finally {
@@ -502,288 +469,264 @@ box-shadow:
   }
 
   return (
-    <div style={{ padding: 12, fontFamily: "Arial, Helvetica, sans-serif" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          marginBottom: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 1000, fontSize: 18 }}>Email Center</div>
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            Reply-To will be set to <b>{REPLY_TO}</b>
+    <div style={S.page}>
+      <div style={S.bgGlow1} />
+      <div style={S.bgGlow2} />
+      <div style={S.bgGlow3} />
+
+      <div style={S.wrap}>
+        <div style={S.hero}>
+          <div style={S.heroShine} />
+
+          <div style={S.heroTop}>
+            <div>
+              <div style={S.kicker}>{BRAND_NAME}</div>
+              <div style={S.h1}>Email Center</div>
+              <div style={S.sub}>
+                Compose, preview and send premium branded emails with attachments.
+              </div>
+              <div style={S.replyLine}>
+                Reply-To will be set to <b>{REPLY_TO}</b>
+              </div>
+            </div>
+
+            <div style={S.topBtns}>
+              <button style={S.secondary} onClick={clearComposer} disabled={sending}>
+                Clear
+              </button>
+            </div>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn btn-ghost" onClick={loadLeads} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh Leads"}
-          </button>
-          <button className="btn btn-ghost" onClick={clearComposer} disabled={sending}>
-            Clear
-          </button>
-        </div>
-      </div>
+        {(err || okMsg) && (
+          <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+            {err ? <div style={S.err}>{err}</div> : null}
+            {okMsg ? <div style={S.ok}>{okMsg}</div> : null}
+          </div>
+        )}
 
-      <div
-        className="emailCenterGrid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(280px, 380px) 1fr",
-          gap: 14,
-          alignItems: "start",
-        }}
-      >
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div style={{ fontWeight: 1000 }}>Leads</div>
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>{leads.length}</div>
+        <div
+          style={{
+            ...S.grid,
+            gridTemplateColumns: isMobile
+              ? "1fr"
+              : "minmax(360px, 520px) minmax(0, 1fr)",
+          }}
+        >
+          <div style={S.previewCard}>
+            <div style={S.mainHead}>
+              <div>
+                <div style={S.sideTitle}>Preview</div>
+                <div style={S.sideSub}>Live branded email preview</div>
+              </div>
+            </div>
+
+            <div style={S.previewBox}>
+              <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            </div>
           </div>
 
-          {loading ? (
-            <div style={{ padding: 10, color: "#64748b" }}>Loading...</div>
-          ) : leads.length === 0 ? (
-            <div style={{ padding: 10, color: "#64748b" }}>No leads</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-              {leads.map((l) => {
-                const active = selectedLead?.id === l.id;
+          <div style={S.mainCard}>
+            <div style={S.mainHead}>
+              <div>
+                <div style={S.sideTitle}>Compose & Send</div>
+                <div style={S.sideSub}>
+                  Attach PDF / files and send directly to customer.
+                </div>
+              </div>
+            </div>
 
-                return (
-                  <button
-                    key={l.id}
-                    className="sideLink"
-                    style={{
-                      textAlign: "left",
-                      border: active ? "1px solid rgba(11,94,215,0.35)" : "1px solid var(--line)",
-                      background: active ? "rgba(11,94,215,0.06)" : "transparent",
-                      borderRadius: 14,
-                      padding: 10,
-                    }}
-                    onClick={() => composeFromLead(l)}
-                    title="Click to compose email"
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ fontWeight: 1000 }}>{l.name || "Lead"}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                        {fmtDateTime(l.createdAt) || ""}
+            <div style={S.formGrid}>
+              <label style={S.labelWrap}>
+                <div style={S.label}>To</div>
+                <input
+                  style={S.input}
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  placeholder="customer@email.com"
+                />
+              </label>
+
+              <label style={S.labelWrap}>
+                <div style={S.label}>Subject</div>
+                <input
+                  style={S.input}
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+              </label>
+
+              <div style={S.labelWrap}>
+                <div style={S.label}>Message</div>
+
+                <div style={S.editorWrap}>
+                  <div style={S.toolbar}>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("bold")} title="Bold">
+                      <b>B</b>
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("italic")} title="Italic">
+                      <i>I</i>
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("underline")} title="Underline">
+                      <u>U</u>
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => setFontSize(2)} title="Small text">
+                      A-
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => setFontSize(3)} title="Normal text">
+                      A
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => setFontSize(5)} title="Large text">
+                      A+
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("insertUnorderedList")} title="Bullet list">
+                      • List
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("insertOrderedList")} title="Number list">
+                      1. List
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("removeFormat")} title="Clear format">
+                      Clear
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("undo")} title="Undo">
+                      Undo
+                    </button>
+                    <button type="button" style={S.toolBtn} onClick={() => runCmd("redo")} title="Redo">
+                      Redo
+                    </button>
+                  </div>
+
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={onEditorInput}
+                    onKeyDown={onEditorKeyDown}
+                    onPaste={onEditorPaste}
+                    data-placeholder="Type your email here..."
+                    style={S.editor}
+                  />
+                </div>
+
+                <div style={S.editorHint}>
+                  Enter = single line break. Paste will keep plain text only.
+                </div>
+              </div>
+
+              <div style={S.attachGrid}>
+                <div style={S.attachCard}>
+                  <div style={S.attachHead}>
+                    <div>
+                      <div style={S.label}>Main PDF (optional)</div>
+                      <div style={S.attachSub}>Single main attachment</div>
+                    </div>
+                  </div>
+
+                  <input
+                    ref={mainPdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={onMainPdfChange}
+                    style={{ display: "none" }}
+                  />
+
+                  <div style={S.attachActions}>
+                    <button type="button" style={S.filePickBtn} onClick={chooseMainPdf}>
+                      Select Main PDF
+                    </button>
+
+                    {mainPdf ? (
+                      <button type="button" style={S.fileGhostBtn} onClick={removeMainPdf}>
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {mainPdf ? (
+                    <div style={S.mainFileBox}>
+                      <div style={S.mainFileIcon}>📄</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={S.mainFileName}>{mainPdf.name}</div>
+                        <div style={S.mainFileMeta}>{bytes(mainPdf.size)}</div>
                       </div>
                     </div>
-
-                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                      {l.email || "-"} • {l.city || "-"}
-                    </div>
-
-                    <div style={{ fontSize: 12, marginTop: 6, color: "#0f172a" }}>
-                      {l.subject || "Enquiry"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {err ? <div style={{ marginTop: 10, color: "#b91c1c", fontWeight: 900 }}>{err}</div> : null}
-          {okMsg ? <div style={{ marginTop: 10, color: "#166534", fontWeight: 1000 }}>{okMsg}</div> : null}
-        </div>
-
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-            <div>
-              <div style={{ fontWeight: 1000 }}>Compose & Send</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                Attach PDFs and send directly to the customer.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-            <label>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>To</div>
-              <input
-                className="input"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                placeholder="customer@email.com"
-              />
-            </label>
-
-            <label>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>Subject</div>
-              <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} />
-            </label>
-
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)", marginBottom: 6 }}>Message</div>
-
-              <div
-                style={{
-                  border: "1px solid var(--line)",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  background: "#fff",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    padding: 10,
-                    borderBottom: "1px solid var(--line)",
-                    background: "rgba(2,6,23,0.03)",
-                  }}
-                >
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("bold")} title="Bold">
-                    <b>B</b>
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("italic")} title="Italic">
-                    <i>I</i>
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("underline")} title="Underline">
-                    <u>U</u>
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => setFontSize(2)} title="Small text">
-                    A-
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => setFontSize(3)} title="Normal text">
-                    A
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => setFontSize(5)} title="Large text">
-                    A+
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("insertUnorderedList")} title="Bullet list">
-                    • List
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("insertOrderedList")} title="Number list">
-                    1. List
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("removeFormat")} title="Clear format">
-                    Clear Format
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("undo")} title="Undo">
-                    Undo
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => runCmd("redo")} title="Redo">
-                    Redo
-                  </button>
+                  ) : (
+                    <div style={S.fileMuted}>No main PDF selected</div>
+                  )}
                 </div>
 
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={onEditorInput}
-                  onKeyDown={onEditorKeyDown}
-                  onPaste={onEditorPaste}
-                  data-placeholder="Type your email here..."
-                  style={{
-                    minHeight: 180,
-                    padding: 12,
-                    outline: "none",
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    color: "#0f172a",
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                  }}
-                />
-              </div>
-
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
-                Enter = single line break. Paste will keep plain text only.
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>
-                  Main PDF (optional)
-                </div>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => setMainPdf(e.target.files?.[0] || null)}
-                />
-
-                {mainPdf ? (
-                  <div style={{ fontSize: 12, color: "#0f172a" }}>
-                    ✅ <b>{mainPdf.name}</b>{" "}
-                    <span style={{ color: "var(--muted)" }}>({bytes(mainPdf.size)})</span>
+                <div style={S.attachCard}>
+                  <div style={S.attachHead}>
+                    <div>
+                      <div style={S.label}>Extra Files (optional)</div>
+                      <div style={S.attachSub}>Multiple files can be added again and again</div>
+                    </div>
                   </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>No main PDF selected</div>
-                )}
-              </div>
 
-              <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)" }}>
-                  Extra Files (optional)
-                </div>
-                <input type="file" multiple onChange={(e) => setExtraFiles(Array.from(e.target.files || []))} />
+                  <input
+                    ref={extraFilesInputRef}
+                    type="file"
+                    multiple
+                    onChange={onExtraFilesChange}
+                    style={{ display: "none" }}
+                  />
 
-                {extraFiles?.length ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {extraFiles.map((f, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          alignItems: "center",
-                          border: "1px solid var(--line)",
-                          padding: "6px 10px",
-                          borderRadius: 999,
-                          background: "rgba(2,6,23,0.02)",
-                          fontSize: 12,
+                  <div style={S.attachActions}>
+                    <button type="button" style={S.filePickBtn} onClick={chooseExtraFiles}>
+                      Add Extra Files
+                    </button>
+
+                    {extraFiles.length ? (
+                      <button
+                        type="button"
+                        style={S.fileGhostBtn}
+                        onClick={() => {
+                          setExtraFiles([]);
+                          resetExtraFilesInput();
                         }}
                       >
-                        <b>{f.name}</b>
-                        <span style={{ color: "var(--muted)" }}>{bytes(f.size)}</span>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ height: 24, padding: "0 8px" }}
-                          onClick={() => removeExtra(i)}
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+                        Remove All
+                      </button>
+                    ) : null}
                   </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>No extra files selected</div>
-                )}
+
+                  {extraFiles?.length ? (
+                    <div style={S.fileTags}>
+                      {extraFiles.map((f, i) => (
+                        <div key={fileKey(f)} style={S.fileTag}>
+                          <div style={S.fileTagMain}>
+                            <span style={S.fileTagIcon}>📎</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={S.fileTagName}>{f.name}</div>
+                              <div style={S.fileTagMeta}>{bytes(f.size)}</div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            style={S.removeBtn}
+                            onClick={() => removeExtra(i)}
+                            title="Remove"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={S.fileMuted}>No extra files selected</div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <button className="btn" onClick={send} disabled={sending}>
-                {sending ? "Sending..." : "Send Email"}
-              </button>
+              <div style={S.actionBar}>
+                <button style={S.primary} onClick={send} disabled={sending}>
+                  {sending ? "Sending..." : "Send Email"}
+                </button>
 
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                Customer replies will come to: <b>{REPLY_TO}</b>
-              </div>
-            </div>
-
-            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 1000, marginBottom: 8 }}>Preview</div>
-              <div
-                style={{
-                  border: "1px solid var(--line)",
-                  borderRadius: 16,
-                  padding: 10,
-                  background: "#fff",
-                }}
-              >
-                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                <div style={S.replyInfo}>
+                  Customer replies will come to: <b>{REPLY_TO}</b>
+                </div>
               </div>
             </div>
           </div>
@@ -791,10 +734,6 @@ box-shadow:
       </div>
 
       <style>{`
-        @media (max-width: 980px){
-          .emailCenterGrid { grid-template-columns: 1fr !important; }
-        }
-
         [contenteditable][data-placeholder]:empty:before {
           content: attr(data-placeholder);
           color: #94a3b8;
@@ -824,3 +763,491 @@ box-shadow:
     </div>
   );
 }
+
+const S = {
+  page: {
+    position: "relative",
+    overflow: "hidden",
+    padding: 14,
+    fontFamily: "Arial, Helvetica, sans-serif",
+  },
+
+  wrap: {
+    maxWidth: 1400,
+    margin: "0 auto",
+    position: "relative",
+    zIndex: 2,
+  },
+
+  bgGlow1: {
+    position: "absolute",
+    top: -80,
+    left: -80,
+    width: 260,
+    height: 260,
+    borderRadius: "50%",
+    background: "rgba(0,123,255,0.10)",
+    filter: "blur(70px)",
+    pointerEvents: "none",
+  },
+
+  bgGlow2: {
+    position: "absolute",
+    top: 140,
+    right: -80,
+    width: 260,
+    height: 260,
+    borderRadius: "50%",
+    background: "rgba(255,140,0,0.10)",
+    filter: "blur(80px)",
+    pointerEvents: "none",
+  },
+
+  bgGlow3: {
+    position: "absolute",
+    bottom: -120,
+    left: "25%",
+    width: 320,
+    height: 320,
+    borderRadius: "50%",
+    background: "rgba(0,170,255,0.10)",
+    filter: "blur(95px)",
+    pointerEvents: "none",
+  },
+
+  hero: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 14,
+    background:
+      "radial-gradient(900px 260px at 12% 0%, rgba(255,140,0,0.10), transparent 60%)," +
+      "radial-gradient(820px 240px at 88% 0%, rgba(0,123,255,0.08), transparent 60%)," +
+      "radial-gradient(760px 220px at 100% 100%, rgba(0,163,255,0.08), transparent 60%)," +
+      "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90))",
+    color: "#111827",
+    border: "1px solid rgba(148,163,184,0.20)",
+    boxShadow:
+      "0 18px 40px rgba(17,24,39,0.08), 0 8px 18px rgba(17,24,39,0.05)",
+  },
+
+  heroShine: {
+    height: 4,
+    borderRadius: 999,
+    marginBottom: 16,
+    background:
+      "linear-gradient(90deg, rgba(11,61,145,0.12), rgba(255,140,0,0.22), rgba(0,163,255,0.12))",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+  },
+
+  heroTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+
+  kicker: {
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: 1.2,
+    color: "#0b3d91",
+    marginBottom: 8,
+  },
+
+  h1: {
+    fontSize: "clamp(24px, 3vw, 30px)",
+    fontWeight: 900,
+    lineHeight: 1.06,
+    color: "#111827",
+  },
+
+  sub: {
+    fontSize: 14,
+    color: "#475569",
+    fontWeight: 700,
+    marginTop: 8,
+    lineHeight: 1.7,
+    maxWidth: 700,
+  },
+
+  replyLine: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  topBtns: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+
+  grid: {
+    display: "grid",
+    gap: 14,
+    alignItems: "start",
+  },
+
+  previewCard: {
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90))",
+    borderRadius: 20,
+    border: "1px solid rgba(148,163,184,0.20)",
+    boxShadow: "0 14px 30px rgba(17,24,39,0.07)",
+    padding: 14,
+    position: "sticky",
+    top: 14,
+  },
+
+  mainCard: {
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90))",
+    borderRadius: 20,
+    border: "1px solid rgba(148,163,184,0.20)",
+    boxShadow: "0 14px 30px rgba(17,24,39,0.07)",
+    padding: 14,
+  },
+
+  mainHead: {
+    marginBottom: 12,
+  },
+
+  sideTitle: {
+    fontSize: 15,
+    fontWeight: 900,
+    color: "#111827",
+  },
+
+  sideSub: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  formGrid: {
+    display: "grid",
+    gap: 12,
+  },
+
+  labelWrap: {
+    display: "grid",
+    gap: 6,
+  },
+
+  label: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#475569",
+  },
+
+  input: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(17,24,39,0.10)",
+    fontSize: 13,
+    outline: "none",
+    fontFamily: "Arial, Helvetica, sans-serif",
+    boxSizing: "border-box",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.92))",
+    color: "#111827",
+    boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
+  },
+
+  editorWrap: {
+    border: "1px solid rgba(17,24,39,0.10)",
+    borderRadius: 16,
+    overflow: "hidden",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.92))",
+    boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
+  },
+
+  toolbar: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    padding: 10,
+    borderBottom: "1px solid rgba(17,24,39,0.08)",
+    background:
+      "radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.04), transparent 55%), linear-gradient(180deg,#fff,#f8fbff)",
+  },
+
+  toolBtn: {
+    height: 36,
+    minWidth: 36,
+    padding: "0 11px",
+    borderRadius: 12,
+    border: "1px solid rgba(17,24,39,0.10)",
+    background: "linear-gradient(180deg,#ffffff,#f8fafc)",
+    color: "#111827",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: 800,
+    fontFamily: "Arial, Helvetica, sans-serif",
+    boxShadow: "0 8px 16px rgba(17,24,39,0.05)",
+  },
+
+  editor: {
+    minHeight: 220,
+    padding: 14,
+    outline: "none",
+    fontSize: 14,
+    lineHeight: 1.7,
+    color: "#111827",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    fontFamily: "Arial, Helvetica, sans-serif",
+  },
+
+  editorHint: {
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  attachGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 12,
+  },
+
+  attachCard: {
+    border: "1px solid rgba(148,163,184,0.22)",
+    borderRadius: 18,
+    padding: 14,
+    background:
+      "radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.03), transparent 55%), linear-gradient(180deg,#ffffff,#fbfdff)",
+    boxShadow: "0 10px 24px rgba(17,24,39,0.04)",
+  },
+
+  attachHead: {
+    marginBottom: 12,
+  },
+
+  attachSub: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  attachActions: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+
+  filePickBtn: {
+    padding: "11px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(11,94,215,0.20)",
+    background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
+    color: "#fff",
+    fontWeight: 900,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "Arial, Helvetica, sans-serif",
+    boxShadow: "0 12px 24px rgba(11,94,215,0.16)",
+  },
+
+  fileGhostBtn: {
+    padding: "11px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(17,24,39,0.12)",
+    background: "#fff",
+    color: "#111827",
+    fontWeight: 900,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "Arial, Helvetica, sans-serif",
+    boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
+  },
+
+  mainFileBox: {
+    marginTop: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    border: "1px solid rgba(17,24,39,0.08)",
+    background: "linear-gradient(180deg,#ffffff,#f8fbff)",
+    boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
+  },
+
+  mainFileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    display: "grid",
+    placeItems: "center",
+    fontSize: 18,
+    background: "linear-gradient(135deg, rgba(11,94,215,0.10), rgba(255,140,0,0.14))",
+  },
+
+  mainFileName: {
+    fontSize: 13,
+    fontWeight: 900,
+    color: "#111827",
+    lineHeight: 1.5,
+    wordBreak: "break-word",
+  },
+
+  mainFileMeta: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  fileMuted: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  fileTags: {
+    marginTop: 12,
+    display: "grid",
+    gap: 10,
+  },
+
+  fileTag: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    border: "1px solid rgba(148,163,184,0.22)",
+    padding: "10px 12px",
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.92)",
+    boxShadow: "0 6px 14px rgba(17,24,39,0.04)",
+  },
+
+  fileTagMain: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+    flex: 1,
+  },
+
+  fileTagIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    display: "grid",
+    placeItems: "center",
+    background: "linear-gradient(135deg, rgba(0,163,255,0.10), rgba(255,140,0,0.10))",
+    flexShrink: 0,
+  },
+
+  fileTagName: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#111827",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  fileTagMeta: {
+    marginTop: 3,
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  removeBtn: {
+    height: 32,
+    minWidth: 32,
+    padding: "0 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(17,24,39,0.12)",
+    background: "#fff",
+    cursor: "pointer",
+    fontSize: 13,
+    color: "#111827",
+    fontWeight: 900,
+    boxShadow: "0 6px 12px rgba(17,24,39,0.04)",
+    flexShrink: 0,
+  },
+
+  actionBar: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+
+  replyInfo: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  previewBox: {
+    border: "1px solid rgba(148,163,184,0.20)",
+    borderRadius: 18,
+    padding: 10,
+    background: "#fff",
+    overflow: "auto",
+    maxHeight: "calc(100vh - 220px)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
+  },
+
+  primary: {
+    padding: "11px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(11,94,215,0.20)",
+    background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
+    color: "#fff",
+    fontWeight: 900,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "Arial, Helvetica, sans-serif",
+    boxShadow: "0 12px 24px rgba(11,94,215,0.16)",
+  },
+
+  secondary: {
+    padding: "11px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(17,24,39,0.12)",
+    background: "#fff",
+    color: "#111827",
+    fontWeight: 900,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "Arial, Helvetica, sans-serif",
+  },
+
+  err: {
+    background: "rgba(239,68,68,0.10)",
+    border: "1px solid rgba(239,68,68,0.22)",
+    color: "#991b1b",
+    padding: "12px 14px",
+    borderRadius: 16,
+    fontWeight: 900,
+    fontSize: 13,
+  },
+
+  ok: {
+    background: "rgba(34,197,94,0.10)",
+    border: "1px solid rgba(34,197,94,0.22)",
+    color: "#166534",
+    padding: "12px 14px",
+    borderRadius: 16,
+    fontWeight: 900,
+    fontSize: 13,
+  },
+};
