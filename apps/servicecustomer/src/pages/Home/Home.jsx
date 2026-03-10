@@ -294,31 +294,39 @@ const lifetimeTotals = useMemo(() => {
 
     return totals;
   }, [filteredRows, journalSplit]);
-  const outstandingRaw = Number(data?.summary?.outstanding ?? 0);
+  const outstandingRaw = Number(
+  data?.summary?.outstanding ??
+  data?.outstanding ??
+  data?.balance ??
+  0
+);
+
 const outstandingAbs = Math.abs(outstandingRaw);
 
-let outstandingTitle = "Net Account Position";
-let outstandingHint = "Overall balance after all current entries";
+let outstandingTitle = "Outstanding";
+let outstandingHint = "Current balance";
 let outstandingStatus = "";
 let outstandingDisplayValue = outstandingAbs;
 let outstandingClassName = "";
 let outstandingValueClassName = "";
 
 if (outstandingRaw > 0) {
-  outstandingStatus = "Outstanding from Your Side";
+  outstandingStatus = "Amount Due";
+  outstandingHint = "Outstanding from your side";
   outstandingClassName = "kpi-glow-red";
   outstandingValueClassName = "text-red-600";
 } else if (outstandingRaw < 0) {
   outstandingStatus = "Balance in Your Favour";
+  outstandingHint = "Advance / favourable balance";
   outstandingClassName = "kpi-glow-green";
   outstandingValueClassName = "text-emerald-600";
 } else {
-  outstandingStatus = "Account Balance";
+  outstandingStatus = "Account Settled";
+  outstandingHint = "No outstanding balance";
   outstandingDisplayValue = "Settled";
   outstandingClassName = "kpi-glow-blue";
   outstandingValueClassName = "text-blue-600";
 }
-
 const salesCurrentRaw =
   Number(lifetimeTotals.sales || 0) -
   (Number(lifetimeTotals.receipt || 0) +
@@ -538,11 +546,6 @@ if (pageLoading || !data || loadingRows || loadingLifetimeRows) {
   valueClassName={purchaseCurrentValueClassName}
 />
 ) : null}
-
-  {dynamicKpis.map((k) => (
-    <Kpi key={k.title} title={k.title} value={k.value} hint={k.hint} />
-  ))}
-
   {filteredRows.length > 0 ? (
     <Kpi
       title="Transactions"
@@ -550,6 +553,12 @@ if (pageLoading || !data || loadingRows || loadingLifetimeRows) {
       hint="Selected period"
     />
   ) : null}
+
+  {dynamicKpis.map((k) => (
+    <Kpi key={k.title} title={k.title} value={k.value} hint={k.hint} />
+  ))}
+
+
 </div>
       </motion.div>
 
