@@ -47,7 +47,7 @@ function fileKey(file) {
 }
 
 const BRAND_NAME = "SERVICE INDIA";
-const REPLY_TO = "corporate@serviceind.co.in";
+const BRAND_EMAIL = "corporate@serviceind.co.in";
 const BRAND_WEBSITE = "https://www.serviceind.co.in";
 const BRAND_PHONE = "+91-9702485922";
 const BRAND_WHATSAPP = "https://wa.me/919702485922";
@@ -62,13 +62,11 @@ export default function EmailCenter() {
   const [okMsg, setOkMsg] = useState("");
 
   const [to, setTo] = useState("");
-  const [subject, setSubject] = useState(`${BRAND_NAME} – Notification`);
+  const [subject, setSubject] = useState(`Notification`);
   const [messageHtml, setMessageHtml] = useState(getDefaultHtml());
-  const [mainPdf, setMainPdf] = useState(null);
   const [extraFiles, setExtraFiles] = useState([]);
   const [sending, setSending] = useState(false);
 
-  const mainPdfInputRef = useRef(null);
   const extraFilesInputRef = useRef(null);
 
   const [isMobile, setIsMobile] = useState(
@@ -81,12 +79,6 @@ export default function EmailCenter() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  function resetMainPdfInput() {
-    if (mainPdfInputRef.current) {
-      mainPdfInputRef.current.value = "";
-    }
-  }
-
   function resetExtraFilesInput() {
     if (extraFilesInputRef.current) {
       extraFilesInputRef.current.value = "";
@@ -94,35 +86,17 @@ export default function EmailCenter() {
   }
 
   function clearComposer() {
-    const html = getDefaultHtml();
-
     setTo("");
     setSubject(`${BRAND_NAME} – Notification`);
-    setMessageHtml(html);
-    setMainPdf(null);
+    setMessageHtml(getDefaultHtml());
     setExtraFiles([]);
     setOkMsg("");
     setErr("");
-
-    resetMainPdfInput();
     resetExtraFilesInput();
-
-
-  }
-
-
-  function chooseMainPdf() {
-    mainPdfInputRef.current?.click();
   }
 
   function chooseExtraFiles() {
     extraFilesInputRef.current?.click();
-  }
-
-  function onMainPdfChange(e) {
-    const picked = e.target.files?.[0] || null;
-    setMainPdf(picked);
-    resetMainPdfInput();
   }
 
   function onExtraFilesChange(e) {
@@ -143,11 +117,6 @@ export default function EmailCenter() {
     resetExtraFilesInput();
   }
 
-  function removeMainPdf() {
-    setMainPdf(null);
-    resetMainPdfInput();
-  }
-
   function removeExtra(i) {
     setExtraFiles((prev) => prev.filter((_, idx) => idx !== i));
     resetExtraFilesInput();
@@ -160,7 +129,7 @@ export default function EmailCenter() {
 <table align="center" width="100%" cellpadding="0" cellspacing="0"
 style="
 max-width:600px;
-margin:30px auto;
+margin:18px auto;
 border-radius:16px;
 overflow:hidden;
 font-family:Arial,Helvetica,sans-serif;
@@ -225,8 +194,7 @@ box-shadow:
                   line-height:1.6;
                   text-shadow:0 2px 8px rgba(0,0,0,0.30);
                 ">
-                  Please find the message below.<br/>
-                  Reply-To: <b>${escHtml(REPLY_TO)}</b>
+                  Please find the message below.
                 </p>
               </td>
             </tr>
@@ -252,20 +220,17 @@ box-shadow:
             border:1px dashed rgba(11,94,215,0.55);
           ">
             <p style="font-size:14px;line-height:1.65;margin:0;color:#1f2937;">
-              For any clarification, please reply at
-              <a href="mailto:${escHtml(REPLY_TO)}"
+              For any clarification, please contact us at
+              <a href="mailto:${escHtml(BRAND_EMAIL)}"
                  style="color:#0b5ed7;text-decoration:none;font-weight:bold;"
                  target="_blank">
-                ${escHtml(REPLY_TO)}
+                ${escHtml(BRAND_EMAIL)}
               </a>
             </p>
 
             <p style="font-size:14px;margin:16px 0 0 0;color:#1f2937;line-height:1.7;">
               Warm Regards,<br/>
               <b>${BRAND_NAME}</b><br/>
-              📧 <a target="_blank" href="mailto:${escHtml(REPLY_TO)}" style="color:#0b5ed7;text-decoration:none;">
-                ${escHtml(REPLY_TO)}
-              </a><br/>
               🌐 <a href="${BRAND_WEBSITE}" style="color:#0b5ed7;text-decoration:none;" target="_blank">
                 ${BRAND_WEBSITE.replace("https://", "")}
               </a>
@@ -284,23 +249,19 @@ box-shadow:
         color:#6b7280;
         border-top:1px solid rgba(17,24,39,0.08);
       ">
-        <div style="font-weight:bold; color:#111827; margin-bottom:6px;">
-          This is a system-generated email. Please reply to the email address mentioned above.
-        </div>
-
         <div style="
           height:2px;
           width:160px;
-          margin:10px auto 10px auto;
+          margin:2px auto 10px auto;
           border-radius:999px;
           background:linear-gradient(90deg, rgba(11,61,145,0.25), rgba(255,140,0,0.35), rgba(0,163,255,0.25));
         "></div>
 
         <div style="line-height:1.7;">
           📧
-          <a target="_blank" href="mailto:${escHtml(REPLY_TO)}"
+          <a target="_blank" href="mailto:${escHtml(BRAND_EMAIL)}"
              style="color:#0b5ed7;text-decoration:none;font-weight:bold;">
-            ${escHtml(REPLY_TO)}
+            ${escHtml(BRAND_EMAIL)}
           </a><br/>
 
           📞
@@ -353,14 +314,11 @@ box-shadow:
         to: to.trim(),
         subject: subject.trim(),
         html: previewHtml,
-        mainPdf,
         extraFiles,
       });
 
       setOkMsg(`✅ Email sent successfully. Attachments: ${res?.attached || 0}`);
-      setMainPdf(null);
       setExtraFiles([]);
-      resetMainPdfInput();
       resetExtraFilesInput();
     } catch (e) {
       setErr(e?.response?.data?.message || e?.message || "Email failed");
@@ -376,31 +334,19 @@ box-shadow:
       <div style={S.bgGlow3} />
 
       <div style={S.wrap}>
-        <div style={S.hero}>
-          <div style={S.heroShine} />
-
-          <div style={S.heroTop}>
-            <div>
-              <div style={S.kicker}>{BRAND_NAME}</div>
-              <div style={S.h1}>Email Center</div>
-              <div style={S.sub}>
-                Compose, preview and send premium branded emails with attachments.
-              </div>
-              <div style={S.replyLine}>
-                Reply-To will be set to <b>{REPLY_TO}</b>
-              </div>
-            </div>
-
-            <div style={S.topBtns}>
-              <button style={S.secondary} onClick={clearComposer} disabled={sending}>
-                Clear
-              </button>
-            </div>
+        <div style={S.topBar}>
+          <div>
+            <div style={S.pageTitle}>Email Center</div>
+            <div style={S.pageSub}>Compose, preview and send branded emails.</div>
           </div>
+
+          <button style={S.secondary} onClick={clearComposer} disabled={sending}>
+            Clear
+          </button>
         </div>
 
         {(err || okMsg) && (
-          <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+          <div style={{ display: "grid", gap: 8, marginBottom: 10, flexShrink: 0 }}>
             {err ? <div style={S.err}>{err}</div> : null}
             {okMsg ? <div style={S.ok}>{okMsg}</div> : null}
           </div>
@@ -411,7 +357,7 @@ box-shadow:
             ...S.grid,
             gridTemplateColumns: isMobile
               ? "1fr"
-              : "minmax(360px, 520px) minmax(0, 1fr)",
+              : "minmax(340px, 470px) minmax(0, 1fr)",
           }}
         >
           <div style={S.previewCard}>
@@ -431,109 +377,58 @@ box-shadow:
             <div style={S.mainHead}>
               <div>
                 <div style={S.sideTitle}>Compose & Send</div>
-                <div style={S.sideSub}>
-                  Attach PDF / files and send directly to customer.
-                </div>
+                <div style={S.sideSub}>Compact layout with attachments and direct send.</div>
               </div>
             </div>
 
             <div style={S.formGrid}>
-              <label style={S.labelWrap}>
-                <div style={S.label}>To</div>
-                <input
-                  style={S.input}
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  placeholder="customer@email.com"
-                />
-              </label>
+              <div style={S.topFields}>
+                <label style={S.labelWrap}>
+                  <div style={S.label}>To</div>
+                  <input
+                    style={S.input}
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                    placeholder="customer@email.com"
+                  />
+                </label>
 
-              <label style={S.labelWrap}>
-                <div style={S.label}>Subject</div>
-                <input
-                  style={S.input}
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                />
-              </label>
+                <label style={S.labelWrap}>
+                  <div style={S.label}>Subject</div>
+                  <input
+                    style={S.input}
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  />
+                </label>
+              </div>
 
-              <div style={S.labelWrap}>
+              <div style={{ ...S.labelWrap, minHeight: 0 }}>
                 <div style={S.label}>Message</div>
 
-                <EmailEditor
-  value={messageHtml}
-  onChange={setMessageHtml}
-  toolbarStyle={S.toolbar}
-  editorStyle={S.editorArea}
-  buttonStyle={S.toolBtn}
-/>
+                <div style={S.editorOnlyWrap}>
+                  <EmailEditor
+                    value={messageHtml}
+                    onChange={setMessageHtml}
+                    editorStyle={S.editor}
+                  />
+                </div>
 
                 <div style={S.editorHint}>
-                  Enter = single line break. Paste will keep plain text only.
+                  Plain clean editor view with bigger visible message area.
                 </div>
               </div>
 
-              <div style={S.attachGrid}>
-                <div style={S.attachCard}>
-                  <div style={S.attachHead}>
-                    <div>
-                      <div style={S.label}>Main PDF (optional)</div>
-                      <div style={S.attachSub}>Single main attachment</div>
-                    </div>
+              <div style={S.attachCompactCard}>
+                <div style={S.attachCompactHead}>
+                  <div>
+                    <div style={S.label}>Attachments (optional)</div>
+                    <div style={S.attachSub}>Multiple files can be added again and again</div>
                   </div>
-
-                  <input
-                    ref={mainPdfInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    onChange={onMainPdfChange}
-                    style={{ display: "none" }}
-                  />
-
-                  <div style={S.attachActions}>
-                    <button type="button" style={S.filePickBtn} onClick={chooseMainPdf}>
-                      Select Main PDF
-                    </button>
-
-                    {mainPdf ? (
-                      <button type="button" style={S.fileGhostBtn} onClick={removeMainPdf}>
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {mainPdf ? (
-                    <div style={S.mainFileBox}>
-                      <div style={S.mainFileIcon}>📄</div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={S.mainFileName}>{mainPdf.name}</div>
-                        <div style={S.mainFileMeta}>{bytes(mainPdf.size)}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={S.fileMuted}>No main PDF selected</div>
-                  )}
-                </div>
-
-                <div style={S.attachCard}>
-                  <div style={S.attachHead}>
-                    <div>
-                      <div style={S.label}>Extra Files (optional)</div>
-                      <div style={S.attachSub}>Multiple files can be added again and again</div>
-                    </div>
-                  </div>
-
-                  <input
-                    ref={extraFilesInputRef}
-                    type="file"
-                    multiple
-                    onChange={onExtraFilesChange}
-                    style={{ display: "none" }}
-                  />
 
                   <div style={S.attachActions}>
                     <button type="button" style={S.filePickBtn} onClick={chooseExtraFiles}>
-                      Add Extra Files
+                      Add Files
                     </button>
 
                     {extraFiles.length ? (
@@ -549,44 +444,48 @@ box-shadow:
                       </button>
                     ) : null}
                   </div>
-
-                  {extraFiles?.length ? (
-                    <div style={S.fileTags}>
-                      {extraFiles.map((f, i) => (
-                        <div key={fileKey(f)} style={S.fileTag}>
-                          <div style={S.fileTagMain}>
-                            <span style={S.fileTagIcon}>📎</span>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={S.fileTagName}>{f.name}</div>
-                              <div style={S.fileTagMeta}>{bytes(f.size)}</div>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            style={S.removeBtn}
-                            onClick={() => removeExtra(i)}
-                            title="Remove"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={S.fileMuted}>No extra files selected</div>
-                  )}
                 </div>
+
+                <input
+                  ref={extraFilesInputRef}
+                  type="file"
+                  multiple
+                  onChange={onExtraFilesChange}
+                  style={{ display: "none" }}
+                />
+
+                {extraFiles?.length ? (
+                  <div style={S.fileTagsCompact}>
+                    {extraFiles.map((f, i) => (
+                      <div key={fileKey(f)} style={S.fileChip}>
+                        <div style={S.fileChipLeft}>
+                          <span style={S.fileTagIcon}>📎</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={S.fileTagName}>{f.name}</div>
+                            <div style={S.fileTagMeta}>{bytes(f.size)}</div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          style={S.removeBtn}
+                          onClick={() => removeExtra(i)}
+                          title="Remove"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={S.fileMuted}>No files selected</div>
+                )}
               </div>
 
               <div style={S.actionBar}>
                 <button style={S.primary} onClick={send} disabled={sending}>
                   {sending ? "Sending..." : "Send Email"}
                 </button>
-
-                <div style={S.replyInfo}>
-                  Customer replies will come to: <b>{REPLY_TO}</b>
-                </div>
               </div>
             </div>
           </div>
@@ -594,6 +493,10 @@ box-shadow:
       </div>
 
       <style>{`
+        html, body, #root {
+          height: 100%;
+        }
+
         [contenteditable][data-placeholder]:empty:before {
           content: attr(data-placeholder);
           color: #94a3b8;
@@ -619,35 +522,36 @@ box-shadow:
         [contenteditable] u {
           text-decoration: underline;
         }
-          .email-editor-prose p {
-  margin: 0 0 10px 0;
-}
 
-.email-editor-prose ul,
-.email-editor-prose ol {
-  margin: 8px 0 8px 20px;
-}
+        .email-editor-prose p {
+          margin: 0 0 8px 0;
+        }
 
-.email-editor-prose li {
-  margin: 4px 0;
-}
+        .email-editor-prose ul,
+        .email-editor-prose ol {
+          margin: 8px 0 8px 20px;
+        }
 
-.email-editor-prose strong {
-  font-weight: 700;
-}
+        .email-editor-prose li {
+          margin: 4px 0;
+        }
 
-.email-editor-prose em {
-  font-style: italic;
-}
+        .email-editor-prose strong {
+          font-weight: 700;
+        }
 
-.email-editor-prose u {
-  text-decoration: underline;
-}
+        .email-editor-prose em {
+          font-style: italic;
+        }
 
-.email-editor-prose:empty::before {
-  content: "Type your email here...";
-  color: #94a3b8;
-}
+        .email-editor-prose u {
+          text-decoration: underline;
+        }
+
+        .email-editor-prose:empty::before {
+          content: "Type your email here...";
+          color: #94a3b8;
+        }
       `}</style>
     </div>
   );
@@ -657,15 +561,47 @@ const S = {
   page: {
     position: "relative",
     overflow: "hidden",
-    padding: 14,
+    height: "calc(100vh - 20px)",
+    minHeight: 0,
+    padding: 10,
     fontFamily: "Arial, Helvetica, sans-serif",
+    boxSizing: "border-box",
   },
 
   wrap: {
     maxWidth: 1400,
+    height: "100%",
+    minHeight: 0,
     margin: "0 auto",
     position: "relative",
     zIndex: 2,
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+
+  topBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "4px 2px 2px 2px",
+    flexShrink: 0,
+    flexWrap: "wrap",
+  },
+
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 900,
+    color: "#111827",
+    lineHeight: 1.05,
+  },
+
+  pageSub: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 700,
+    marginTop: 4,
   },
 
   bgGlow1: {
@@ -704,106 +640,43 @@ const S = {
     pointerEvents: "none",
   },
 
-  hero: {
-    position: "relative",
-    overflow: "hidden",
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
-    background:
-      "radial-gradient(900px 260px at 12% 0%, rgba(255,140,0,0.10), transparent 60%)," +
-      "radial-gradient(820px 240px at 88% 0%, rgba(0,123,255,0.08), transparent 60%)," +
-      "radial-gradient(760px 220px at 100% 100%, rgba(0,163,255,0.08), transparent 60%)," +
-      "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90))",
-    color: "#111827",
-    border: "1px solid rgba(148,163,184,0.20)",
-    boxShadow:
-      "0 18px 40px rgba(17,24,39,0.08), 0 8px 18px rgba(17,24,39,0.05)",
-  },
-
-  heroShine: {
-    height: 4,
-    borderRadius: 999,
-    marginBottom: 16,
-    background:
-      "linear-gradient(90deg, rgba(11,61,145,0.12), rgba(255,140,0,0.22), rgba(0,163,255,0.12))",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-
-  heroTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 16,
-    flexWrap: "wrap",
-  },
-
-  kicker: {
-    fontSize: 11,
-    fontWeight: 900,
-    letterSpacing: 1.2,
-    color: "#0b3d91",
-    marginBottom: 8,
-  },
-
-  h1: {
-    fontSize: "clamp(24px, 3vw, 30px)",
-    fontWeight: 900,
-    lineHeight: 1.06,
-    color: "#111827",
-  },
-
-  sub: {
-    fontSize: 14,
-    color: "#475569",
-    fontWeight: 700,
-    marginTop: 8,
-    lineHeight: 1.7,
-    maxWidth: 700,
-  },
-
-  replyLine: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "#64748b",
-    fontWeight: 700,
-  },
-
-  topBtns: {
-    display: "flex",
-    gap: 8,
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-
   grid: {
     display: "grid",
-    gap: 14,
-    alignItems: "start",
+    gap: 10,
+    alignItems: "stretch",
+    flex: 1,
+    minHeight: 0,
   },
 
   previewCard: {
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90))",
     borderRadius: 20,
     border: "1px solid rgba(148,163,184,0.20)",
     boxShadow: "0 14px 30px rgba(17,24,39,0.07)",
-    padding: 14,
-    position: "sticky",
-    top: 14,
+    padding: 12,
+    overflow: "hidden",
   },
 
   mainCard: {
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90))",
     borderRadius: 20,
     border: "1px solid rgba(148,163,184,0.20)",
     boxShadow: "0 14px 30px rgba(17,24,39,0.07)",
-    padding: 14,
+    padding: 12,
+    overflow: "hidden",
   },
 
   mainHead: {
-    marginBottom: 12,
+    marginBottom: 10,
+    flexShrink: 0,
   },
 
   sideTitle: {
@@ -821,12 +694,22 @@ const S = {
 
   formGrid: {
     display: "grid",
-    gap: 12,
+    gap: 10,
+    minHeight: 0,
+    flex: 1,
+    overflow: "hidden",
+  },
+
+  topFields: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 10,
   },
 
   labelWrap: {
     display: "grid",
     gap: 6,
+    minWidth: 0,
   },
 
   label: {
@@ -837,7 +720,8 @@ const S = {
 
   input: {
     width: "100%",
-    padding: "12px 14px",
+    height: 42,
+    padding: "10px 14px",
     borderRadius: 14,
     border: "1px solid rgba(17,24,39,0.10)",
     fontSize: 13,
@@ -850,7 +734,9 @@ const S = {
     boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
   },
 
-  editorWrap: {
+  editorOnlyWrap: {
+    minHeight: 0,
+    flex: 1,
     border: "1px solid rgba(17,24,39,0.10)",
     borderRadius: 16,
     overflow: "hidden",
@@ -859,37 +745,14 @@ const S = {
     boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
   },
 
-  toolbar: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    padding: 10,
-    borderBottom: "1px solid rgba(17,24,39,0.08)",
-    background:
-      "radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.04), transparent 55%), linear-gradient(180deg,#fff,#f8fbff)",
-  },
-
-  toolBtn: {
-    height: 36,
-    minWidth: 36,
-    padding: "0 11px",
-    borderRadius: 12,
-    border: "1px solid rgba(17,24,39,0.10)",
-    background: "linear-gradient(180deg,#ffffff,#f8fafc)",
-    color: "#111827",
-    cursor: "pointer",
-    fontSize: 12,
-    fontWeight: 800,
-    fontFamily: "Arial, Helvetica, sans-serif",
-    boxShadow: "0 8px 16px rgba(17,24,39,0.05)",
-  },
-
   editor: {
-    minHeight: 220,
+    minHeight: 300,
+    maxHeight: 360,
+    overflowY: "auto",
     padding: 14,
     outline: "none",
     fontSize: 14,
-    lineHeight: 1.7,
+    lineHeight: 1.8,
     color: "#111827",
     whiteSpace: "normal",
     wordBreak: "break-word",
@@ -900,27 +763,27 @@ const S = {
     fontSize: 11,
     color: "#64748b",
     fontWeight: 700,
+    flexShrink: 0,
   },
 
-  attachGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: 12,
-  },
-
-  attachCard: {
+  attachCompactCard: {
     border: "1px solid rgba(148,163,184,0.22)",
     borderRadius: 18,
-    padding: 14,
+    padding: 12,
     background:
       "radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.03), transparent 55%), linear-gradient(180deg,#ffffff,#fbfdff)",
     boxShadow: "0 10px 24px rgba(17,24,39,0.04)",
     overflow: "hidden",
-minWidth: 0,
+    minWidth: 0,
   },
 
-  attachHead: {
-    marginBottom: 12,
+  attachCompactHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    marginBottom: 10,
   },
 
   attachSub: {
@@ -938,7 +801,7 @@ minWidth: 0,
   },
 
   filePickBtn: {
-    padding: "11px 14px",
+    padding: "10px 13px",
     borderRadius: 14,
     border: "1px solid rgba(11,94,215,0.20)",
     background: "linear-gradient(135deg,#0b3d91,#0b5ed7,#00a3ff,#ff8c00)",
@@ -951,7 +814,7 @@ minWidth: 0,
   },
 
   fileGhostBtn: {
-    padding: "11px 14px",
+    padding: "10px 13px",
     borderRadius: 14,
     border: "1px solid rgba(17,24,39,0.12)",
     background: "#fff",
@@ -963,119 +826,80 @@ minWidth: 0,
     boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
   },
 
-  mainFileBox: {
-    marginTop: 12,
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(17,24,39,0.08)",
-    background: "linear-gradient(180deg,#ffffff,#f8fbff)",
-    boxShadow: "0 8px 18px rgba(17,24,39,0.04)",
-  },
-
-  mainFileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    display: "grid",
-    placeItems: "center",
-    fontSize: 18,
-    background: "linear-gradient(135deg, rgba(11,94,215,0.10), rgba(255,140,0,0.14))",
-  },
-
-  mainFileName: {
-    fontSize: 13,
-    fontWeight: 900,
-    color: "#111827",
-    lineHeight: 1.5,
-    wordBreak: "break-word",
-  },
-
-  mainFileMeta: {
-    marginTop: 4,
-    fontSize: 11,
-    color: "#64748b",
-    fontWeight: 700,
-  },
-
   fileMuted: {
-    marginTop: 10,
+    marginTop: 6,
     fontSize: 12,
     color: "#64748b",
     fontWeight: 700,
   },
 
-fileTags: {
-  marginTop: 12,
-  display: "grid",
-  gap: 10,
-  width: "100%",
-  minWidth: 0,
-},
+  fileTagsCompact: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: 8,
+    maxHeight: 130,
+    overflowY: "auto",
+    paddingRight: 2,
+  },
 
-fileTag: {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 10,
-  border: "1px solid rgba(148,163,184,0.22)",
-  padding: "10px 12px",
-  borderRadius: 16,
-  background: "rgba(255,255,255,0.92)",
-  boxShadow: "0 6px 14px rgba(17,24,39,0.04)",
-  width: "100%",
-  minWidth: 0,
-  boxSizing: "border-box",
-  overflow: "hidden",
-},
+  fileChip: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    border: "1px solid rgba(148,163,184,0.22)",
+    padding: "8px 10px",
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.92)",
+    boxShadow: "0 6px 14px rgba(17,24,39,0.04)",
+    minWidth: 0,
+  },
 
-fileTagMain: {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  minWidth: 0,
-  flex: 1,
-  overflow: "hidden",
-},
+  fileChipLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+    flex: 1,
+    overflow: "hidden",
+  },
 
   fileTagIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     display: "grid",
     placeItems: "center",
     background: "linear-gradient(135deg, rgba(0,163,255,0.10), rgba(255,140,0,0.10))",
     flexShrink: 0,
   },
 
-fileTagName: {
-  fontSize: 12,
-  fontWeight: 900,
-  color: "#111827",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  maxWidth: "100%",
-},
+  fileTagName: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#111827",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "100%",
+  },
 
   fileTagMeta: {
-    marginTop: 3,
+    marginTop: 2,
     fontSize: 11,
     color: "#64748b",
     fontWeight: 700,
   },
 
   removeBtn: {
-    height: 32,
-    minWidth: 32,
-    padding: "0 10px",
+    height: 28,
+    minWidth: 28,
+    padding: "0 8px",
     borderRadius: 999,
     border: "1px solid rgba(17,24,39,0.12)",
     background: "#fff",
     cursor: "pointer",
-    fontSize: 13,
+    fontSize: 12,
     color: "#111827",
     fontWeight: 900,
     boxShadow: "0 6px 12px rgba(17,24,39,0.04)",
@@ -1087,21 +911,17 @@ fileTagName: {
     gap: 10,
     flexWrap: "wrap",
     alignItems: "center",
-  },
-
-  replyInfo: {
-    fontSize: 12,
-    color: "#64748b",
-    fontWeight: 700,
+    flexShrink: 0,
   },
 
   previewBox: {
     border: "1px solid rgba(148,163,184,0.20)",
     borderRadius: 18,
-    padding: 10,
+    padding: 8,
     background: "#fff",
     overflow: "auto",
-    maxHeight: "calc(100vh - 220px)",
+    flex: 1,
+    minHeight: 0,
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
   },
 
@@ -1134,7 +954,7 @@ fileTagName: {
     background: "rgba(239,68,68,0.10)",
     border: "1px solid rgba(239,68,68,0.22)",
     color: "#991b1b",
-    padding: "12px 14px",
+    padding: "10px 12px",
     borderRadius: 16,
     fontWeight: 900,
     fontSize: 13,
@@ -1144,10 +964,9 @@ fileTagName: {
     background: "rgba(34,197,94,0.10)",
     border: "1px solid rgba(34,197,94,0.22)",
     color: "#166534",
-    padding: "12px 14px",
+    padding: "10px 12px",
     borderRadius: 16,
     fontWeight: 900,
     fontSize: 13,
   },
-  
 };

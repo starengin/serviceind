@@ -1321,11 +1321,47 @@ async function buildEmailAttachments(mainPdf, extraFiles = []) {
 
   return attachments;
 }
+async function buildZohoEmailAttachments(extraFiles = []) {
+  const files = [...(extraFiles || [])];
+  const attachments = [];
+
+  for (const file of files) {
+    let finalFile = file;
+
+    try {
+      if (isPdfFile(file)) {
+        finalFile = await maybeCompressPdf(file);
+      }
+
+      const content = fs.readFileSync(finalFile.path);
+
+      attachments.push({
+        filename: finalFile.originalname || "attachment",
+        content,
+        contentType: finalFile.mimetype || "application/octet-stream",
+      });
+    } catch (e) {
+      console.error("ZOHO ATTACHMENT PROCESS FAILED:", e?.message || e);
+
+      try {
+        const content = fs.readFileSync(file.path);
+        attachments.push({
+          filename: file.originalname || "attachment",
+          content,
+          contentType: file.mimetype || "application/octet-stream",
+        });
+      } catch (innerErr) {
+        console.error("ZOHO ATTACHMENT FALLBACK FAILED:", innerErr?.message || innerErr);
+      }
+    }
+  }
+
+  return attachments;
+}
 app.post(
   "/admin/emails/send",
   requireAdmin,
   uploadEmail.fields([
-    { name: "mainPdf", maxCount: 1 },
     { name: "extraFiles", maxCount: 50 },
   ]),
   async (req, res) => {
@@ -1342,26 +1378,20 @@ app.post(
         return res.status(400).json({ message: "to, subject, html required" });
       }
 
-      const mainPdf = req.files?.mainPdf?.[0] || null;
       const extra = req.files?.extraFiles || [];
+      filesToCleanup = [...extra];
 
-      filesToCleanup = [
-        ...(mainPdf ? [mainPdf] : []),
-        ...extra,
-      ];
+      attachments = await buildZohoEmailAttachments(extra);
 
-      attachments = await buildEmailAttachments(mainPdf, extra);
-
-      const sendResult = await resend.emails.send({
-        from: RESEND_FROM_FMT,
-        to: [String(to).trim()],
+      const sendResult = await smtp.sendMail({
+        from: `"SERVICE INDIA" <${process.env.ZOHO_EMAIL}>`,
+        to: String(to).trim(),
         subject: String(subject).trim(),
         html: String(html),
-        reply_to: "corporate@serviceind.co.in",
         attachments: attachments.length ? attachments : undefined,
       });
 
-      console.log("ADMIN EMAIL SEND SUCCESS:", sendResult);
+      console.log("ADMIN EMAIL SEND SUCCESS (ZOHO):", sendResult?.messageId || sendResult);
 
       return res.json({ ok: true, attached: attachments.length });
     } catch (e) {

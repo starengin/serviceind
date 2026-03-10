@@ -3,7 +3,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 
-export default function EmailEditor({ value, onChange, toolbarStyle, editorStyle, buttonStyle }) {
+export default function EmailEditor({ value, onChange, editorStyle }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -21,11 +21,11 @@ export default function EmailEditor({ value, onChange, toolbarStyle, editorStyle
       attributes: {
         class: "email-editor-prose",
         style: `
-          min-height: 220px;
-          padding: 14px;
+          min-height: 300px;
+          padding: 16px;
           outline: none;
           font-size: 14px;
-          line-height: 1.7;
+          line-height: 1.8;
           color: #111827;
           font-family: Arial, Helvetica, sans-serif;
           word-break: break-word;
@@ -47,30 +47,20 @@ export default function EmailEditor({ value, onChange, toolbarStyle, editorStyle
   if (!editor) return null;
 
   return (
-    <div style={{ border: "1px solid rgba(17,24,39,0.10)", borderRadius: 16, overflow: "hidden", background: "#fff" }}>
+    <div
+      style={{
+        border: "1px solid rgba(17,24,39,0.10)",
+        borderRadius: 16,
+        overflow: "hidden",
+        background: "#fff",
+      }}
+    >
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          padding: 10,
-          borderBottom: "1px solid rgba(17,24,39,0.08)",
-          background:
-            "radial-gradient(700px 180px at 15% 0%, rgba(0,123,255,0.04), transparent 55%), linear-gradient(180deg,#fff,#f8fbff)",
-          ...toolbarStyle,
+          minHeight: 300,
+          ...editorStyle,
         }}
       >
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().toggleBold().run()}><b>B</b></button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().toggleItalic().run()}><i>I</i></button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().toggleUnderline().run()}><u>U</u></button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().undo().run()}>Undo</button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().redo().run()}>Redo</button>
-        <button type="button" style={buttonStyle} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>Clear</button>
-      </div>
-
-      <div style={{ minHeight: 220, ...editorStyle }}>
         <EditorContent editor={editor} />
       </div>
     </div>
