@@ -314,7 +314,7 @@ export default function Transactions() {
                 onClick={onExport}
                 type="button"
               >
-                Export PDF
+                Export Ledger
               </button>
             </div>
           </div>

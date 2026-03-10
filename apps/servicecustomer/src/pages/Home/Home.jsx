@@ -29,6 +29,8 @@ export default function Home() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
   const [allRows, setAllRows] = useState([]);
+  const [lifetimeRows, setLifetimeRows] = useState([]);
+const [loadingLifetimeRows, setLoadingLifetimeRows] = useState(true);
   const [loadingRows, setLoadingRows] = useState(true);
   const [pageLoading, setPageLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -47,24 +49,30 @@ export default function Home() {
       });
     }, 120);
 
-    (async () => {
-      try {
-        const res = await fetchDashboardSafe();
-        if (alive) {
-          setData(res || null);
-          setAllRows(res?.recent || []);
-        }
-      } catch (e) {
-        if (alive) setErr(e.message || "Failed");
-      } finally {
-        if (alive) {
-          setLoadingProgress(100);
-          setTimeout(() => {
-            if (alive) setPageLoading(false);
-          }, 250);
-        }
-      }
-    })();
+(async () => {
+  try {
+    const [dashboardRes, lifetimeRes] = await Promise.all([
+      fetchDashboardSafe(),
+      fetchLifetimeTransactionsSafe(),
+    ]);
+
+    if (alive) {
+      setData(dashboardRes || null);
+      setAllRows(dashboardRes?.recent || []);
+      setLifetimeRows(normalizeTxnResponse(lifetimeRes));
+    }
+  } catch (e) {
+    if (alive) setErr(e.message || "Failed");
+  } finally {
+    if (alive) {
+      setLoadingLifetimeRows(false);
+      setLoadingProgress(100);
+      setTimeout(() => {
+        if (alive) setPageLoading(false);
+      }, 250);
+    }
+  }
+})();
 
     return () => {
       alive = false;
@@ -101,6 +109,7 @@ export default function Home() {
   const filteredRows = useMemo(() => {
     return (allRows || []).filter((r) => isRowInPeriod(r, period.from, period.to));
   }, [allRows, period.from, period.to]);
+  
 
   const journalSplit = useMemo(() => {
   let dr = 0;
@@ -163,6 +172,66 @@ export default function Home() {
 
   return { dr, cr };
 }, [filteredRows]);
+const lifetimeJournalSplit = useMemo(() => {
+  let dr = 0;
+  let cr = 0;
+
+  for (const r of lifetimeRows) {
+    const type = getTxnType(r);
+
+    if (type !== "JOURNAL" && type !== "JOURNAL_DR" && type !== "JOURNAL_CR") {
+      continue;
+    }
+
+    const debit = toNum(
+      r?.debit ??
+        r?.dr ??
+        r?.debitAmount ??
+        r?.debit_amount ??
+        r?.drAmount ??
+        r?.Dr ??
+        r?.DR
+    );
+
+    const credit = toNum(
+      r?.credit ??
+        r?.cr ??
+        r?.creditAmount ??
+        r?.credit_amount ??
+        r?.crAmount ??
+        r?.Cr ??
+        r?.CR
+    );
+
+    if (debit || credit) {
+      dr += debit;
+      cr += credit;
+      continue;
+    }
+
+    const amt = toAmount(r);
+    const side = String(
+      r?.side ?? r?.dc ?? r?.drcr ?? r?.DrCr ?? r?.dcFlag ?? ""
+    ).toUpperCase();
+
+    if (type === "JOURNAL_DR") {
+      dr += amt;
+      continue;
+    }
+
+    if (type === "JOURNAL_CR") {
+      cr += amt;
+      continue;
+    }
+
+    if (amt) {
+      if (side === "DR" || side === "DEBIT") dr += amt;
+      if (side === "CR" || side === "CREDIT") cr += amt;
+    }
+  }
+
+  return { dr, cr };
+}, [lifetimeRows]);
 
 
 const salesTrend = useMemo(() => {
@@ -172,6 +241,32 @@ const salesTrend = useMemo(() => {
 const purchaseTrend = useMemo(() => {
   return buildTrendFromRows(filteredRows, period.from, period.to);
 }, [filteredRows, period.from, period.to]);
+const lifetimeTotals = useMemo(() => {
+  const totals = {
+    sales: 0,
+    receipt: 0,
+    salesReturn: 0,
+    purchase: 0,
+    payment: 0,
+    purchaseReturn: 0,
+    journalDr: Number(lifetimeJournalSplit.dr || 0),
+    journalCr: Number(lifetimeJournalSplit.cr || 0),
+  };
+
+  for (const r of lifetimeRows) {
+    const type = getTxnType(r);
+    const amount = toAmount(r);
+
+    if (type === "SALE") totals.sales += amount;
+    else if (type === "RECEIPT") totals.receipt += amount;
+    else if (type === "SALES_RETURN") totals.salesReturn += amount;
+    else if (type === "PURCHASE") totals.purchase += amount;
+    else if (type === "PAYMENT") totals.payment += amount;
+    else if (type === "PURCHASE_RETURN") totals.purchaseReturn += amount;
+  }
+
+  return totals;
+}, [lifetimeRows, lifetimeJournalSplit]);
 
   const kpiTotals = useMemo(() => {
     const totals = {
@@ -218,24 +313,24 @@ if (outstandingRaw > 0) {
   outstandingClassName = "kpi-glow-green";
   outstandingValueClassName = "text-emerald-600";
 } else {
-  outstandingStatus = "Account Settled";
+  outstandingStatus = "Account Balance";
   outstandingDisplayValue = "Settled";
   outstandingClassName = "kpi-glow-blue";
   outstandingValueClassName = "text-blue-600";
 }
 
 const salesCurrentRaw =
-  Number(kpiTotals.sales || 0) -
-  (Number(kpiTotals.receipt || 0) +
-    Number(kpiTotals.salesReturn || 0) +
-    Number(kpiTotals.journalCr || 0));
+  Number(lifetimeTotals.sales || 0) -
+  (Number(lifetimeTotals.receipt || 0) +
+    Number(lifetimeTotals.salesReturn || 0) +
+    Number(lifetimeTotals.journalCr || 0));
 
 const salesCurrentAbs = Math.abs(salesCurrentRaw);
 const showSalesCurrent = salesCurrentAbs > 0;
 
 let salesCurrentTitle = "Sales Side Status";
 let salesCurrentHint =
-  "Sales, receipt, sales return and journal credit considered";
+  "Lifetime sales, receipt, sales return and journal credit considered";
 let salesCurrentStatus = "";
 let salesCurrentClassName = "";
 let salesCurrentValueClassName = "";
@@ -257,17 +352,17 @@ else if (salesCurrentRaw < 0) {
 }
 
 const purchaseCurrentRaw =
-  Number(kpiTotals.purchase || 0) -
-  (Number(kpiTotals.payment || 0) +
-    Number(kpiTotals.purchaseReturn || 0) +
-    Number(kpiTotals.journalDr || 0));
+  Number(lifetimeTotals.purchase || 0) -
+  (Number(lifetimeTotals.payment || 0) +
+    Number(lifetimeTotals.purchaseReturn || 0) +
+    Number(lifetimeTotals.journalDr || 0));
 
 const purchaseCurrentAbs = Math.abs(purchaseCurrentRaw);
 const showPurchaseCurrent = purchaseCurrentAbs > 0;
 
 let purchaseCurrentTitle = "Purchase Side Status";
 let purchaseCurrentHint =
-  "Purchase, payment, purchase return and journal debit considered";
+  "Lifetime purchase, payment, purchase return and journal debit considered";
 let purchaseCurrentStatus = "";
 let purchaseCurrentClassName = "";
 let purchaseCurrentValueClassName = "";
@@ -330,10 +425,9 @@ else if (purchaseCurrentRaw > 0) {
   if (err) {
     return <div className="card p-5 text-sm text-red-700">Error: {err}</div>;
   }
-
-  if (pageLoading || !data || loadingRows) {
-    return <DashboardLoader progress={loadingProgress} />;
-  }
+if (pageLoading || !data || loadingRows || loadingLifetimeRows) {
+  return <DashboardLoader progress={loadingProgress} />;
+}
 
   return (
     <div className="space-y-6">
@@ -721,7 +815,9 @@ async function fetchDashboardSafe() {
 async function fetchTransactionsSafe(from, to) {
   return api.transactions({ from, to });
 }
-
+async function fetchLifetimeTransactionsSafe() {
+  return api.transactions({});
+}
 /* ========================= Data Helpers ========================= */
 
 function normalizeTxnResponse(res) {
