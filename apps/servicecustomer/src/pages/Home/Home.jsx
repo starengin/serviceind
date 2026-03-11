@@ -545,14 +545,6 @@ if (pageLoading || !data || loadingRows || loadingLifetimeRows) {
   valueClassName={purchaseCurrentValueClassName}
 />
 ) : null}
-  {filteredRows.length > 0 ? (
-    <Kpi
-      title="Transactions"
-      value={filteredRows.length}
-      hint="Selected period"
-    />
-  ) : null}
-
   {dynamicKpis.map((k) => (
     <Kpi key={k.title} title={k.title} value={k.value} hint={k.hint} />
   ))}
