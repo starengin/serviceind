@@ -311,12 +311,12 @@ let outstandingClassName = "";
 let outstandingValueClassName = "";
 
 if (outstandingRaw > 0) {
-  outstandingStatus = "Amount Due";
+  outstandingStatus = "Net Amount Due";
   outstandingHint = "Outstanding from your side";
   outstandingClassName = "kpi-glow-red";
   outstandingValueClassName = "text-red-600";
 } else if (outstandingRaw < 0) {
-  outstandingStatus = "Balance in Your Favour";
+  outstandingStatus = "Net Balance in Your Favour";
   outstandingHint = "Advance / favourable balance";
   outstandingClassName = "kpi-glow-green";
   outstandingValueClassName = "text-emerald-600";
@@ -346,19 +346,18 @@ let salesCurrentValueClassName = "";
 if (salesCurrentRaw > 0) {
   salesCurrentTitle = "Sales Side";
   salesCurrentHint = "Payment Due";
-  salesCurrentStatus = "Customer Payment Pending";
+  salesCurrentStatus = "Kindly Issue the pending payment to the SERVICE INDIA";
   salesCurrentClassName = "kpi-glow-amber";
   salesCurrentValueClassName = "text-amber-600";
 }
 
 else if (salesCurrentRaw < 0) {
   salesCurrentTitle = "Sales Side";
-  salesCurrentHint = "Company Invoice";
-  salesCurrentStatus = "Invoice to be Issued by Company";
+  salesCurrentHint = "Invoice Not Generated";
+  salesCurrentStatus = "SERVICE INDIA will generate the pending invoice once the work is completed.";
   salesCurrentClassName = "kpi-glow-violet";
   salesCurrentValueClassName = "text-violet-600";
 }
-
 const purchaseCurrentRaw =
   Number(lifetimeTotals.purchase || 0) -
   (Number(lifetimeTotals.payment || 0) +
@@ -377,16 +376,16 @@ let purchaseCurrentValueClassName = "";
 
 if (purchaseCurrentRaw < 0) {
   purchaseCurrentTitle = "Purchase Side";
-  purchaseCurrentHint = "Supplier Invoice";
-  purchaseCurrentStatus = "Invoice to be Issued by Supplier";
+  purchaseCurrentHint = "Waiting for your Invoice";
+  purchaseCurrentStatus = "Kindly Generate the pending invoice for SERVICE INDIA";
   purchaseCurrentClassName = "kpi-glow-cyan";
   purchaseCurrentValueClassName = "text-cyan-600";
 }
 
 else if (purchaseCurrentRaw > 0) {
   purchaseCurrentTitle = "Purchase Side";
-  purchaseCurrentHint = "Company Payment";
-  purchaseCurrentStatus = "Payment to be Made by Company";
+  purchaseCurrentHint = "Your Receivable is Pending";
+  purchaseCurrentStatus = "SERVICE INDIA will issue the pending Payment before the due date.";
   purchaseCurrentClassName = "kpi-glow-rose";
   purchaseCurrentValueClassName = "text-rose-600";
 }
