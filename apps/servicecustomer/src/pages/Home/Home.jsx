@@ -345,16 +345,16 @@ let salesCurrentValueClassName = "";
 
 if (salesCurrentRaw > 0) {
   salesCurrentTitle = "Sales Side";
-  salesCurrentHint = "Payment Due";
-  salesCurrentStatus = "Kindly Issue the pending payment to the SERVICE INDIA";
+  salesCurrentHint = "Kindly Issue the pending payment to the SERVICE INDIA";
+  salesCurrentStatus = "Payment Due";
   salesCurrentClassName = "kpi-glow-amber";
   salesCurrentValueClassName = "text-amber-600";
 }
 
 else if (salesCurrentRaw < 0) {
   salesCurrentTitle = "Sales Side";
-  salesCurrentHint = "Invoice Not Generated";
-  salesCurrentStatus = "SERVICE INDIA will generate the pending invoice once the work is completed.";
+  salesCurrentHint = "SERVICE INDIA will generate the pending invoice once the work is completed.";
+  salesCurrentStatus = "Invoice not Generated";
   salesCurrentClassName = "kpi-glow-violet";
   salesCurrentValueClassName = "text-violet-600";
 }
@@ -376,16 +376,16 @@ let purchaseCurrentValueClassName = "";
 
 if (purchaseCurrentRaw < 0) {
   purchaseCurrentTitle = "Purchase Side";
-  purchaseCurrentHint = "Waiting for your Invoice";
-  purchaseCurrentStatus = "Kindly Generate the pending invoice for SERVICE INDIA";
+  purchaseCurrentHint = "Kindly Generate the pending invoice for SERVICE INDIA";
+  purchaseCurrentStatus = "Waiting for Your Invoice";
   purchaseCurrentClassName = "kpi-glow-cyan";
   purchaseCurrentValueClassName = "text-cyan-600";
 }
 
 else if (purchaseCurrentRaw > 0) {
   purchaseCurrentTitle = "Purchase Side";
-  purchaseCurrentHint = "Your Receivable is Pending";
-  purchaseCurrentStatus = "SERVICE INDIA will issue the pending Payment before the due date.";
+  purchaseCurrentHint = "SERVICE INDIA will issue the pending Payment before the due date.";
+  purchaseCurrentStatus = "Your Receivable is Pending";
   purchaseCurrentClassName = "kpi-glow-rose";
   purchaseCurrentValueClassName = "text-rose-600";
 }
