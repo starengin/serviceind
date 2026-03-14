@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import { Helmet } from "react-helmet-async";
 
 function useReveal() {
   useEffect(() => {
@@ -59,6 +60,34 @@ export default function Home() {
 
   return (
     <>
+    <Helmet>
+      <title>Service India | Fabrication, Installation & Industrial Work in Mumbai</title>
+      <meta
+        name="description"
+        content="Service India provides fabrication, installation, repair, shed work, structural work, railing, gate, roofing, platform and industrial job work solutions in Mumbai for industrial and commercial projects."
+      />
+      <meta
+        name="keywords"
+        content="Service India, fabrication work Mumbai, industrial fabrication Mumbai, shed work Mumbai, gate fabrication, railing fabrication, roofing work, installation work, repair maintenance fabrication, structural fabrication Mumbai"
+      />
+      <link rel="canonical" href="https://www.serviceind.co.in/" />
+
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content="Service India | Fabrication, Installation & Industrial Work in Mumbai" />
+      <meta
+        property="og:description"
+        content="Industrial fabrication, installation, repair, roofing, railing, gate and custom job work solutions in Mumbai."
+      />
+      <meta property="og:url" content="https://www.serviceind.co.in/" />
+      <meta property="og:site_name" content="Service India" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Service India | Fabrication, Installation & Industrial Work in Mumbai" />
+      <meta
+        name="twitter:description"
+        content="Industrial fabrication, installation, repair and site execution support in Mumbai."
+      />
+    </Helmet>
       <section ref={heroRef} className="heroFull" style={blobStyle}>
         <div className="heroBg" aria-hidden="true">
           <div className="heroBlob b1" />

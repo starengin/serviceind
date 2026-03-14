@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import { Helmet } from "react-helmet-async";
 
 const CTA_TEXT = "Send Requirement →";
 
@@ -150,6 +151,35 @@ export default function Contact() {
   }
 
   return (
+    <>
+    <Helmet>
+      <title>Contact Service India | Send Fabrication & Industrial Work Requirement</title>
+      <meta
+        name="description"
+        content="Contact Service India for fabrication, installation, repair, roofing, structural and industrial job work requirements in Mumbai. Share your details for discussion, feasibility and quotation."
+      />
+      <meta
+        name="keywords"
+        content="contact Service India, fabrication enquiry Mumbai, industrial work contact, roofing work enquiry, repair work quotation, installation requirement Mumbai"
+      />
+      <link rel="canonical" href="https://www.serviceind.co.in/contact" />
+
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content="Contact Service India | Send Fabrication & Industrial Work Requirement" />
+      <meta
+        property="og:description"
+        content="Contact Service India for fabrication, installation, repair and industrial job work requirements in Mumbai."
+      />
+      <meta property="og:url" content="https://www.serviceind.co.in/contact" />
+      <meta property="og:site_name" content="Service India" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Contact Service India | Send Fabrication & Industrial Work Requirement" />
+      <meta
+        name="twitter:description"
+        content="Send your fabrication, installation, repair and industrial work requirement to Service India."
+      />
+    </Helmet>
     <div className="container" style={{ paddingTop: 18, paddingBottom: 40 }}>
       <div className="contactHero">
         <div className="heroBadge" style={{ marginBottom: 10 }}>
@@ -635,5 +665,6 @@ export default function Contact() {
         }
       `}</style>
     </div>
+  </>
   );
 }

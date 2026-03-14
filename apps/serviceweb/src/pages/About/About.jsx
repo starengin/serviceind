@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import { Helmet } from "react-helmet-async";
 
 function useReveal() {
   useEffect(() => {
@@ -30,6 +31,34 @@ export default function About() {
 
   return (
     <>
+    <Helmet>
+  <title>About Service India | Fabrication, Installation & Industrial Job Work in Mumbai</title>
+  <meta
+    name="description"
+    content="Learn about Service India, a Mumbai-based fabrication, installation, repair and industrial job work company supporting factories, workshops, warehouses and project sites with practical execution."
+  />
+  <meta
+    name="keywords"
+    content="about Service India, fabrication company Mumbai, industrial job work Mumbai, installation company Mumbai, repair maintenance fabrication, structural fabrication company"
+  />
+  <link rel="canonical" href="https://www.serviceind.co.in/about" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="About Service India | Fabrication, Installation & Industrial Job Work in Mumbai" />
+  <meta
+    property="og:description"
+    content="Know more about Service India and its fabrication, repair, installation and industrial execution support services in Mumbai."
+  />
+  <meta property="og:url" content="https://www.serviceind.co.in/about" />
+  <meta property="og:site_name" content="Service India" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="About Service India | Fabrication, Installation & Industrial Job Work in Mumbai" />
+  <meta
+    name="twitter:description"
+    content="About Service India and its fabrication, repair, installation and industrial work support in Mumbai."
+  />
+</Helmet>
       <section className="aboutBand aboutBand--blueprint">
         <div className="aboutBandBg" aria-hidden="true">
           <div className="abBlob a1" />

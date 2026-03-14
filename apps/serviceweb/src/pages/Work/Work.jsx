@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import { Helmet } from "react-helmet-async";
 
 /* ✅ Same reveal system as Home */
 function useReveal(deps = []) {
@@ -257,6 +258,35 @@ export default function Work() {
   };
 
   return (
+     <>
+    <Helmet>
+      <title>Work Portfolio | Fabrication, Roofing, Gate, Railing & Industrial Jobs | Service India</title>
+      <meta
+        name="description"
+        content="Explore Service India work portfolio including structural fabrication, shed work, roofing, gate, grill, railing, piping support, platform fabrication, erection, installation and industrial repair jobs in Mumbai."
+      />
+      <meta
+        name="keywords"
+        content="fabrication portfolio Mumbai, structural fabrication work, shed roofing work, gate grill railing fabrication, industrial repair work, piping support fabrication, Service India work, industrial job work Mumbai"
+      />
+      <link rel="canonical" href="https://www.serviceind.co.in/work" />
+
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content="Work Portfolio | Fabrication, Roofing, Gate, Railing & Industrial Jobs | Service India" />
+      <meta
+        property="og:description"
+        content="See fabrication, roofing, railing, gate, piping, platform, installation and industrial repair work handled by Service India."
+      />
+      <meta property="og:url" content="https://www.serviceind.co.in/work" />
+      <meta property="og:site_name" content="Service India" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Work Portfolio | Fabrication, Roofing, Gate, Railing & Industrial Jobs | Service India" />
+      <meta
+        name="twitter:description"
+        content="Explore Service India work portfolio for fabrication, installation, roofing and industrial job work."
+      />
+    </Helmet>
     <div className="container">
       <div className="shopTop" data-reveal>
         <div>
@@ -606,5 +636,6 @@ export default function Work() {
 }
       `}</style>
     </div>
+  </>
   );
 }
